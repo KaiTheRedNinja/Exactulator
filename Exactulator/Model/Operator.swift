@@ -157,3 +157,143 @@ struct LogOperator: FunctionOperator {
         return .imprecise(.init(value: log(elements.first!.asImprecise.value) / conversion))
     }
 }
+
+struct SinOperator: FunctionOperator {
+    var name: String { "sin" }
+    var argumentCount: ClosedRange<Int> { 1...1 }
+
+    static let shared: SinOperator = .init()
+
+    private struct SpecialSine {
+        /// The angle as a reduced fraction of pi, in [0, 2).
+        let angleNumerator: Int
+        let angleDenominator: Int
+
+        /// The exact sine value.
+        let value: Exact
+    }
+
+    private let specialSines: [SpecialSine] = [
+        // sin(0) = 0.
+        .init(angleNumerator: 0, angleDenominator: 1, value: Exact(0)),
+        // sin(pi/6) = 1/2.
+        .init(angleNumerator: 1, angleDenominator: 6, value: Exact(1, div: 2)),
+        // sin(pi/4) = sqrt(2)/2.
+        .init(angleNumerator: 1, angleDenominator: 4, value: Exact(1, div: 2, surd: 2)),
+        // sin(pi/3) = sqrt(3)/2.
+        .init(angleNumerator: 1, angleDenominator: 3, value: Exact(1, div: 2, surd: 3)),
+        // sin(pi/2) = 1.
+        .init(angleNumerator: 1, angleDenominator: 2, value: Exact(1)),
+        // sin(2pi/3) = sqrt(3)/2.
+        .init(angleNumerator: 2, angleDenominator: 3, value: Exact(1, div: 2, surd: 3)),
+        // sin(3pi/4) = sqrt(2)/2.
+        .init(angleNumerator: 3, angleDenominator: 4, value: Exact(1, div: 2, surd: 2)),
+        // sin(5pi/6) = 1/2.
+        .init(angleNumerator: 5, angleDenominator: 6, value: Exact(1, div: 2)),
+        // sin(pi) = 0.
+        .init(angleNumerator: 1, angleDenominator: 1, value: Exact(0)),
+        // sin(7pi/6) = -1/2.
+        .init(angleNumerator: 7, angleDenominator: 6, value: Exact(-1, div: 2)),
+        // sin(5pi/4) = -sqrt(2)/2.
+        .init(angleNumerator: 5, angleDenominator: 4, value: Exact(-1, div: 2, surd: 2)),
+        // sin(4pi/3) = -sqrt(3)/2.
+        .init(angleNumerator: 4, angleDenominator: 3, value: Exact(-1, div: 2, surd: 3)),
+        // sin(3pi/2) = -1.
+        .init(angleNumerator: 3, angleDenominator: 2, value: Exact(-1)),
+        // sin(5pi/3) = -sqrt(3)/2.
+        .init(angleNumerator: 5, angleDenominator: 3, value: Exact(-1, div: 2, surd: 3)),
+        // sin(7pi/4) = -sqrt(2)/2.
+        .init(angleNumerator: 7, angleDenominator: 4, value: Exact(-1, div: 2, surd: 2)),
+        // sin(11pi/6) = -1/2.
+        .init(angleNumerator: 11, angleDenominator: 6, value: Exact(-1, div: 2))
+    ]
+
+    func specialSine(for angle: Exact) -> Exact? {
+        guard angle.piPower == 1, angle.surdBase == 1 else {
+            return nil
+        }
+
+        // Reduce the angle modulo 2pi.
+        let period = 2 * angle.denominator
+        var numerator = angle.numerator % period
+
+        if numerator < 0 {
+            numerator += period
+        }
+
+        // numerator and denominator are guaranteed to be in canonical form, no need to GCD again
+        return specialSines.first {
+            $0.angleNumerator == numerator
+            && $0.angleDenominator == angle.denominator
+        }?.value
+    }
+
+    func result(elements: [NumValue]) -> NumValue {
+        let input = elements.first!
+        if case let .exact(angle) = input, let exactResult = specialSine(for: angle) {
+            return .exact(exactResult)
+        }
+
+        return .imprecise(.init(value: sin(input.asImprecise.value)))
+    }
+}
+
+struct CosOperator: FunctionOperator {
+    var name: String { "cos" }
+    var argumentCount: ClosedRange<Int> { 1...1 }
+
+    static let shared: CosOperator = .init()
+
+    func result(elements: [NumValue]) -> NumValue {
+        let input = elements.first!
+        if case let .exact(angle) = input, angle.piPower == 1, angle.surdBase == 1 {
+            // pi/2 - (n/d)pi = ((d - 2n) / 2d)pi.
+            let complementaryAngle = Exact(
+                angle.denominator - 2 * angle.numerator,
+                div: 2 * angle.denominator,
+                pi: 1
+            )
+
+            return SinOperator.shared.result(elements: [.exact(complementaryAngle)])
+        }
+
+        return .imprecise(.init(value: cos(input.asImprecise.value)))
+    }
+}
+
+struct TanOperator: FunctionOperator {
+    var name: String { "tan" }
+    var argumentCount: ClosedRange<Int> { 1...1 }
+
+    static let shared: TanOperator = .init()
+
+    func result(elements: [NumValue]) -> NumValue {
+        let input = elements.first!
+        if case let .exact(angle) = input {
+            let sine = SinOperator.shared.result(elements: [.exact(angle)])
+            let cosine = CosOperator.shared.result(elements: [.exact(angle)])
+
+            // Tangent is undefined wherever cosine is zero.
+            if case .exact(let c) = cosine, c.numerator == 0 {
+                fatalError("Undefined, cosine is zero")
+            }
+
+            switch (sine, cosine) {
+            case (.exact(let s), .exact(let c)):
+                // (sn/sd * sqrt(sb)) / (cn/cd * sqrt(cb))
+                // = (sn*cd)/(sd*cn*cb) * sqrt(sb*cb)
+                // we do this directly instead of using division to reduce unnescessary normalisations
+                return .exact(
+                    Exact(
+                        s.numerator * c.denominator,
+                        div: s.denominator * c.numerator * c.surdBase,
+                        surd: s.surdBase * c.surdBase
+                    )
+                )
+            default: break
+            }
+        }
+
+        return .imprecise(.init(value: tan(input.asImprecise.value)))
+    }
+}

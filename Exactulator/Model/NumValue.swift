@@ -50,7 +50,7 @@ enum NumValue {
 /// - `d` is a positive integer
 /// - `p` is an integer
 /// - `b` is a positive integer
-struct Exact {
+struct Exact: Equatable {
     /// The numerator of a rational value
     var numerator: Int
     /// The denominator of a rational value. Must be positive.
@@ -129,7 +129,7 @@ struct Exact {
     )
 }
 
-struct Imprecise: AdditiveArithmetic {
+struct Imprecise: Equatable, AdditiveArithmetic {
     var value: Double
 
     static let zero: Imprecise = .zero

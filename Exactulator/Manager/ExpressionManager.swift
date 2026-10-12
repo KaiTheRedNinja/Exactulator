@@ -9,10 +9,9 @@ import Playgrounds
 
 #Playground {
     let operation = FunctionOperation(
-        op: LogOperator.shared,
+        op: SinOperator.shared,
         elements: [
-            ValueOperation(value: .exact(.init(9))),
-            ValueOperation(value: .exact(.init(3))),
+            ValueOperation(value: .exact(.init(9)))
         ]
     )
 
