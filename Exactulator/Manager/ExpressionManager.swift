@@ -8,14 +8,12 @@
 import Playgrounds
 
 #Playground {
-    let operation = InfixOperation(
-        op: DivisionOperator(),
-        lhs: ValueOperation(
-            value: .exact(.init(5, surd: 3))
-        ),
-        rhs: ValueOperation(
-            value: .exact(.init(7, surd: 10))
-        ),
+    let operation = FunctionOperation(
+        op: LogOperator.shared,
+        elements: [
+            ValueOperation(value: .exact(.init(9))),
+            ValueOperation(value: .exact(.init(3))),
+        ]
     )
 
     print(operation.solve().description)

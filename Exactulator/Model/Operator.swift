@@ -5,6 +5,8 @@
 //  Created by Kai Quan Tay on 12/10/26.
 //
 
+import Foundation
+
 protocol Operator {
     var name: String { get }
     static var shared: Self { get }
@@ -20,6 +22,11 @@ protocol PrefixOperator: Operator {
 
 protocol PostfixOperator: Operator {
     func result(lhs: NumValue) -> NumValue
+}
+
+protocol FunctionOperator: Operator {
+    var argumentCount: ClosedRange<Int> { get }
+    func result(elements: [NumValue]) -> NumValue
 }
 
 struct AdditionOperator: InfixOperator {
@@ -133,5 +140,20 @@ struct DivisionOperator: InfixOperator {
         case .imprecise(let imprecise):
             return .imprecise(.init(value: 1 / imprecise.value))
         }
+    }
+}
+
+struct LogOperator: FunctionOperator {
+    var name: String { "log" }
+    var argumentCount: ClosedRange<Int> { 1...2 }
+
+    static let shared: LogOperator = .init()
+
+    func result(elements: [NumValue]) -> NumValue {
+        let conversion: Double = if elements.count == 1 { 1 } else {
+            log(elements.last!.asImprecise.value)
+        }
+
+        return .imprecise(.init(value: log(elements.first!.asImprecise.value) / conversion))
     }
 }

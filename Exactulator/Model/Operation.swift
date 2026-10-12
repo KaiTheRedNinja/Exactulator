@@ -46,3 +46,13 @@ struct PostfixOperation: Operation {
         op.result(lhs: lhs.solve())
     }
 }
+
+struct FunctionOperation: Operation {
+    var op: any FunctionOperator
+    var elements: [any Operation]
+
+    func solve() -> NumValue {
+        guard op.argumentCount.contains(elements.count) else { fatalError("Wrong number of elements") }
+        return op.result(elements: elements.map { $0.solve() })
+    }
+}
