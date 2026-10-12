@@ -21,6 +21,28 @@ enum NumValue {
         case .imprecise(let imprecise): imprecise
         }
     }
+
+    var description: String {
+        switch self {
+        case .exact(let exact):
+            var result = "\(exact.numerator)"
+            if exact.denominator != 1 {
+                result += "/\(exact.denominator)"
+            }
+            if exact.piPower != 0 || exact.surdBase != 1 {
+                result = "(\(result))"
+                if exact.piPower != 0 {
+                    result += " * (π^\(exact.piPower))"
+                }
+                if exact.surdBase != 1 {
+                    result += " * √\(exact.surdBase)"
+                }
+            }
+            return result
+        case .imprecise(let imprecise):
+            return String(imprecise.value)
+        }
+    }
 }
 
 /// A value in the form `n / d * pi^p * sqrt(b)` where:
@@ -48,6 +70,11 @@ struct Exact {
         self.normalise()
     }
 
+    /// Convenience initialiser for an `Exact`
+    init(_ numerator: Int, div denominator: Int = 1, pi piPower: Int = 0, surd surdBase: Int = 1) {
+        self.init(numerator: numerator, denominator: denominator, piPower: piPower, surdBase: surdBase)
+    }
+
     var asImprecise: Imprecise {
         Imprecise(
             value: (
@@ -59,12 +86,6 @@ struct Exact {
     }
 
     mutating func normalise() {
-        // Simplify numerator and denominator
-        guard denominator != 0 else { fatalError("Divide by zero error") } // Denominator cannot be zero
-        let gcd = gcd(numerator, denominator)
-        numerator = numerator / gcd
-        denominator = denominator / gcd
-
         // Simplify surd
         guard surdBase >= 1 else { fatalError("Format error with surd") } // Surd must be at least 1
 
@@ -86,6 +107,12 @@ struct Exact {
         if numerator == 0 {
             self = .zero
         }
+
+        // Simplify numerator and denominator
+        guard denominator != 0 else { fatalError("Divide by zero error") } // Denominator cannot be zero
+        let gcd = gcd(numerator, denominator)
+        numerator = numerator / gcd
+        denominator = denominator / gcd
     }
 
     func normalised() -> Exact {
@@ -119,6 +146,8 @@ struct Imprecise: AdditiveArithmetic {
 func gcd(_ a: Int, _ b: Int) -> Int {
     var num1 = a
     var num2 = b
+
+    if a == b { return a }
 
     while num2 != 0 {
         let remainder = num1 % num2
