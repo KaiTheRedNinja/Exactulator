@@ -7,13 +7,17 @@
 
 import Playgrounds
 
-#Playground {
-    let operation = FunctionOperation(
-        op: SinOperator.shared,
-        elements: [
-            ValueOperation(value: .exact(.init(9)))
-        ]
-    )
+class ExpressionManager {
+    var expression: String = ""
+    var registeredOps: [any Operator] = []
 
-    print(operation.solve().description)
+    func computeOperationTree() {
+        // convert the expression into tokens
+        let tokens: [Token] = .build(from: expression)
+    }
+}
+
+#Playground {
+    let exp = "1+5(4*6.45)*pi"
+    let tokens = [Token].build(from: exp)
 }

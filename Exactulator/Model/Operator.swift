@@ -9,6 +9,7 @@ import Foundation
 
 protocol Operator {
     var name: String { get }
+    var token: Token { get }
     static var shared: Self { get }
 }
 
@@ -31,6 +32,7 @@ protocol FunctionOperator: Operator {
 
 struct AdditionOperator: InfixOperator {
     var name: String { "add" }
+    var token: Token { "+" }
 
     static let shared: AdditionOperator = .init()
 
@@ -63,6 +65,7 @@ struct AdditionOperator: InfixOperator {
 
 struct SubtractionOperator: InfixOperator, PrefixOperator {
     var name: String { "subtract" }
+    var token: Token { "-" }
 
     static let shared: SubtractionOperator = .init()
 
@@ -83,6 +86,7 @@ struct SubtractionOperator: InfixOperator, PrefixOperator {
 
 struct MultiplicationOperator: InfixOperator {
     var name: String { "multiply" }
+    var token: Token { "×" }
 
     static let shared: MultiplicationOperator = .init()
 
@@ -115,6 +119,7 @@ struct MultiplicationOperator: InfixOperator {
 
 struct DivisionOperator: InfixOperator {
     var name: String { "divide" }
+    var token: Token { "÷" }
 
     static let shared: DivisionOperator = .init()
 
@@ -145,6 +150,7 @@ struct DivisionOperator: InfixOperator {
 
 struct LogOperator: FunctionOperator {
     var name: String { "log" }
+    var token: Token { "log" }
     var argumentCount: ClosedRange<Int> { 1...2 }
 
     static let shared: LogOperator = .init()
@@ -160,6 +166,7 @@ struct LogOperator: FunctionOperator {
 
 struct SinOperator: FunctionOperator {
     var name: String { "sin" }
+    var token: Token { "sin" }
     var argumentCount: ClosedRange<Int> { 1...1 }
 
     static let shared: SinOperator = .init()
@@ -240,6 +247,7 @@ struct SinOperator: FunctionOperator {
 
 struct CosOperator: FunctionOperator {
     var name: String { "cos" }
+    var token: Token { "cos" }
     var argumentCount: ClosedRange<Int> { 1...1 }
 
     static let shared: CosOperator = .init()
@@ -263,6 +271,7 @@ struct CosOperator: FunctionOperator {
 
 struct TanOperator: FunctionOperator {
     var name: String { "tan" }
+    var token: Token { "tan" }
     var argumentCount: ClosedRange<Int> { 1...1 }
 
     static let shared: TanOperator = .init()
