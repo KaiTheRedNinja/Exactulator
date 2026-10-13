@@ -8,9 +8,25 @@
 import Foundation
 
 protocol Operator {
+    /// The name of the operator
     var name: String { get }
-    var token: Token { get }
+    /// What tokens match to this operator
+    var matchTokens: [Token] { get }
+    /// The operator's calculation priority
+    var priority: OperatorPriority { get }
     static var shared: Self { get }
+}
+
+/// Operator priority, higher number = higher priority. Follows PEMDAS.
+enum OperatorPriority: Int {
+    /// Brackets and functions
+    case bracket = 4
+    /// Exponents and square roots
+    case exponential = 3
+    /// Multiplication and division
+    case multiplication = 2
+    /// Addition and subtraction
+    case addition = 1
 }
 
 protocol InfixOperator: Operator {
@@ -32,7 +48,8 @@ protocol FunctionOperator: Operator {
 
 struct AdditionOperator: InfixOperator {
     var name: String { "add" }
-    var token: Token { "+" }
+    var matchTokens: [Token] { ["+"] }
+    var priority: OperatorPriority { .addition }
 
     static let shared: AdditionOperator = .init()
 
@@ -65,7 +82,8 @@ struct AdditionOperator: InfixOperator {
 
 struct SubtractionOperator: InfixOperator, PrefixOperator {
     var name: String { "subtract" }
-    var token: Token { "-" }
+    var matchTokens: [Token] { ["-"] }
+    var priority: OperatorPriority { .addition }
 
     static let shared: SubtractionOperator = .init()
 
@@ -86,7 +104,8 @@ struct SubtractionOperator: InfixOperator, PrefixOperator {
 
 struct MultiplicationOperator: InfixOperator {
     var name: String { "multiply" }
-    var token: Token { "×" }
+    var matchTokens: [Token] { ["×", "*"] }
+    var priority: OperatorPriority { .multiplication }
 
     static let shared: MultiplicationOperator = .init()
 
@@ -119,7 +138,8 @@ struct MultiplicationOperator: InfixOperator {
 
 struct DivisionOperator: InfixOperator {
     var name: String { "divide" }
-    var token: Token { "÷" }
+    var matchTokens: [Token] { ["÷", "/"] }
+    var priority: OperatorPriority { .multiplication }
 
     static let shared: DivisionOperator = .init()
 
@@ -150,7 +170,8 @@ struct DivisionOperator: InfixOperator {
 
 struct LogOperator: FunctionOperator {
     var name: String { "log" }
-    var token: Token { "log" }
+    var matchTokens: [Token] { ["log"] }
+    var priority: OperatorPriority { .bracket }
     var argumentCount: ClosedRange<Int> { 1...2 }
 
     static let shared: LogOperator = .init()
@@ -166,7 +187,8 @@ struct LogOperator: FunctionOperator {
 
 struct SinOperator: FunctionOperator {
     var name: String { "sin" }
-    var token: Token { "sin" }
+    var matchTokens: [Token] { ["sin"] }
+    var priority: OperatorPriority { .bracket }
     var argumentCount: ClosedRange<Int> { 1...1 }
 
     static let shared: SinOperator = .init()
@@ -247,7 +269,8 @@ struct SinOperator: FunctionOperator {
 
 struct CosOperator: FunctionOperator {
     var name: String { "cos" }
-    var token: Token { "cos" }
+    var matchTokens: [Token] { ["cos"] }
+    var priority: OperatorPriority { .bracket }
     var argumentCount: ClosedRange<Int> { 1...1 }
 
     static let shared: CosOperator = .init()
@@ -271,7 +294,8 @@ struct CosOperator: FunctionOperator {
 
 struct TanOperator: FunctionOperator {
     var name: String { "tan" }
-    var token: Token { "tan" }
+    var matchTokens: [Token] { ["tan"] }
+    var priority: OperatorPriority { .bracket }
     var argumentCount: ClosedRange<Int> { 1...1 }
 
     static let shared: TanOperator = .init()

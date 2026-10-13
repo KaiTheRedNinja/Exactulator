@@ -60,19 +60,18 @@ struct Exact: Equatable {
     /// The base of the surd. Must be positive. A value of `1` indicates no surd.
     var surdBase: Int
 
-    /// Creates an `Exact` from its components, then normalises everything.
+    /// Creates an `Exact` from its components, WITHOUT normalisation.
     init(numerator: Int, denominator: Int, piPower: Int, surdBase: Int) {
         self.numerator = numerator
         self.denominator = denominator
         self.piPower = piPower
         self.surdBase = surdBase
-
-        self.normalise()
     }
 
     /// Convenience initialiser for an `Exact`
     init(_ numerator: Int, div denominator: Int = 1, pi piPower: Int = 0, surd surdBase: Int = 1) {
         self.init(numerator: numerator, denominator: denominator, piPower: piPower, surdBase: surdBase)
+        self.normalise()
     }
 
     var asImprecise: Imprecise {
