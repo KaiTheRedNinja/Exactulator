@@ -50,8 +50,6 @@ enum Token: ExpressibleByStringLiteral, Hashable {
     }
 
     init?(checking value: String) {
-        guard let first = value.first else { return nil }
-
         if value.allSatisfy({ digitCharSet.contains($0) }) {
             self = .numerical(value); return
         } else if value.allSatisfy({ $0.isLetter }) {

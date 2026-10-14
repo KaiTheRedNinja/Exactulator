@@ -6,7 +6,7 @@ struct ContentView: View {
         Text("Hello, world!")
             .padding()
             .onTapGesture {
-                print(FunctionOperation(
+                print(try! FunctionOperation(
                     op: SinOperator(),
                     elements: [
                         ValueOperation(value: .exact(.init(1, div: 3, pi: 1)))

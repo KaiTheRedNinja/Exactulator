@@ -85,6 +85,13 @@ enum NumValue {
     }
 }
 
+enum ExactError: Error {
+    /// The `Exact` is in an invalid state
+    case malformed
+    /// Calculating the `Exact` would result in a divide by zero error
+    case divideByZero
+}
+
 /// A value in the form `n / d * pi^p * sqrt(b)` where:
 /// - `n` is an integer
 /// - `d` is a positive integer
@@ -111,7 +118,7 @@ struct Exact: Equatable {
     /// Convenience initialiser for an `Exact`
     init(_ numerator: Int, div denominator: Int = 1, pi piPower: Int = 0, surd surdBase: Int = 1) {
         self.init(numerator: numerator, denominator: denominator, piPower: piPower, surdBase: surdBase)
-        self.normalise()
+        try! self.normalise()
     }
 
     var asImprecise: Imprecise {
@@ -124,9 +131,9 @@ struct Exact: Equatable {
         )
     }
 
-    mutating func normalise() {
+    mutating func normalise() throws(ExactError) {
         // Simplify surd
-        guard surdBase >= 1 else { fatalError("Format error with surd") } // Surd must be at least 1
+        guard surdBase >= 1 else { throw ExactError.malformed } // Surd must be at least 1
 
         var coefficient = 1
         var factor = 2
@@ -148,15 +155,15 @@ struct Exact: Equatable {
         }
 
         // Simplify numerator and denominator
-        guard denominator != 0 else { fatalError("Divide by zero error") } // Denominator cannot be zero
+        guard denominator != 0 else { throw ExactError.divideByZero } // Denominator cannot be zero
         let gcd = gcd(numerator, denominator)
         numerator = numerator / gcd
         denominator = denominator / gcd
     }
 
-    func normalised() -> Exact {
+    func normalised() throws(ExactError) -> Exact {
         var copy = self
-        copy.normalise()
+        try copy.normalise()
         return copy
     }
 

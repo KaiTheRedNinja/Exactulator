@@ -17,6 +17,11 @@ protocol Operator {
     static var shared: Self { get }
 }
 
+enum OperatorError: Error {
+    case exactError(ExactError)
+    case mathError
+}
+
 /// Operator priority, higher number = higher priority. Follows PEMDAS.
 enum OperatorPriority: Int {
     /// Brackets and functions
@@ -30,20 +35,20 @@ enum OperatorPriority: Int {
 }
 
 protocol InfixOperator: Operator {
-    func result(lhs: NumValue, rhs: NumValue) -> NumValue
+    func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue
 }
 
 protocol PrefixOperator: Operator {
-    func result(rhs: NumValue) -> NumValue
+    func result(rhs: NumValue) throws(OperatorError) -> NumValue
 }
 
 protocol PostfixOperator: Operator {
-    func result(lhs: NumValue) -> NumValue
+    func result(lhs: NumValue) throws(OperatorError) -> NumValue
 }
 
 protocol FunctionOperator: Operator {
     var argumentCount: ClosedRange<Int> { get }
-    func result(elements: [NumValue]) -> NumValue
+    func result(elements: [NumValue]) throws(OperatorError) -> NumValue
 }
 
 struct AdditionOperator: InfixOperator {
@@ -53,7 +58,7 @@ struct AdditionOperator: InfixOperator {
 
     static let shared: AdditionOperator = .init()
 
-    func result(lhs: NumValue, rhs: NumValue) -> NumValue {
+    func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue {
         // both must be exact
         guard case .exact(var lhsExact) = lhs,
               case .exact(var rhsExact) = rhs
@@ -61,8 +66,12 @@ struct AdditionOperator: InfixOperator {
             return .imprecise(lhs.asImprecise + rhs.asImprecise)
         }
 
-        lhsExact.normalise()
-        rhsExact.normalise()
+        do {
+            try lhsExact.normalise()
+            try rhsExact.normalise()
+        } catch {
+            throw OperatorError.exactError(error)
+        }
 
         // both must have compatible powers of pi
         guard lhsExact.piPower == rhsExact.piPower && lhsExact.surdBase == rhsExact.surdBase else {
@@ -87,8 +96,8 @@ struct SubtractionOperator: InfixOperator, PrefixOperator {
 
     static let shared: SubtractionOperator = .init()
 
-    func result(lhs: NumValue, rhs: NumValue) -> NumValue {
-        AdditionOperator.shared.result(lhs: lhs, rhs: result(rhs: rhs))
+    func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue {
+        try AdditionOperator.shared.result(lhs: lhs, rhs: result(rhs: rhs))
     }
 
     func result(rhs: NumValue) -> NumValue {
@@ -109,7 +118,7 @@ struct MultiplicationOperator: InfixOperator {
 
     static let shared: MultiplicationOperator = .init()
 
-    func result(lhs: NumValue, rhs: NumValue) -> NumValue {
+    func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue {
         // both must be exact
         guard case .exact(var lhsExact) = lhs,
               case .exact(var rhsExact) = rhs
@@ -117,8 +126,12 @@ struct MultiplicationOperator: InfixOperator {
             return .imprecise(lhs.asImprecise + rhs.asImprecise)
         }
 
-        lhsExact.normalise()
-        rhsExact.normalise()
+        do {
+            try lhsExact.normalise()
+            try rhsExact.normalise()
+        } catch {
+            throw OperatorError.exactError(error)
+        }
 
         // If either has zero as a numerator, we can just return 0 immediately
         if lhsExact.numerator == 0 || rhsExact.numerator == 0 {
@@ -144,8 +157,10 @@ struct DivisionOperator: InfixOperator {
     static let shared: DivisionOperator = .init()
 
     /// `lhs / rhs`
-    func result(lhs: NumValue, rhs: NumValue) -> NumValue {
-        MultiplicationOperator.shared.result(lhs: lhs, rhs: reciprocal(rhs: rhs))
+    func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue {
+        guard rhs.asImprecise.value == 0 else { throw OperatorError.mathError }
+
+        return try MultiplicationOperator.shared.result(lhs: lhs, rhs: reciprocal(rhs: rhs))
     }
 
     /// `1 / rhs`
@@ -177,7 +192,7 @@ struct SubexpressionOperator: FunctionOperator {
 
     static let shared: SubexpressionOperator = .init()
 
-    func result(elements: [NumValue]) -> NumValue {
+    func result(elements: [NumValue]) throws(OperatorError) -> NumValue {
         return elements.first!
     }
 }
@@ -190,12 +205,19 @@ struct LogOperator: FunctionOperator {
 
     static let shared: LogOperator = .init()
 
-    func result(elements: [NumValue]) -> NumValue {
-        let conversion: Double = if elements.count == 1 { 1 } else {
-            log(elements.last!.asImprecise.value)
+    func result(elements: [NumValue]) throws(OperatorError) -> NumValue {
+        let conversion: Double
+        if elements.count == 1 {
+            conversion = 1
+        } else {
+            let last = elements.last!.asImprecise.value
+            guard last > 0 else { throw OperatorError.mathError }
+            conversion = log(last)
         }
 
-        return .imprecise(.init(value: log(elements.first!.asImprecise.value) / conversion))
+        let first = elements.first!.asImprecise.value
+        guard first > 0 else { throw OperatorError.mathError }
+        return .imprecise(.init(value: log(first) / conversion))
     }
 }
 
