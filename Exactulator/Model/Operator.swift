@@ -96,7 +96,7 @@ struct AdditionOperator: InfixOperator {
 
 struct SubtractionOperator: InfixOperator, PrefixOperator {
     var name: String { "subtract" }
-    var matchTokens: Set<Token> { ["-"] }
+    var matchTokens: Set<Token> { ["-"] } // yes, these two dashes are different.
     var priority: OperatorPriority { .addition }
 
     static let shared: SubtractionOperator = .init()
@@ -168,7 +168,7 @@ struct DivisionOperator: InfixOperator {
 
     /// `lhs / rhs`
     func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue {
-        guard rhs.asImprecise.value == 0 else { throw OperatorError.mathError }
+        guard rhs.asImprecise.value != 0 else { throw OperatorError.mathError }
 
         return try MultiplicationOperator.shared.result(lhs: lhs, rhs: reciprocal(rhs: rhs))
     }

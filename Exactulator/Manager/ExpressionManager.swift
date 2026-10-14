@@ -22,8 +22,8 @@ class ExpressionManager {
 
     // Currently planned supported syntax:
     // Infix: `a + b`
-    // Prefix: `-a`
-    // Postfix: `a!`
+    // Prefix: `-a` // currently broken!
+    // Postfix: `a!` // currently broken!
     //
     // Not supported:
     // Functions: `sin(a)`
@@ -64,20 +64,34 @@ class ExpressionManager {
                 return try computeSubexpression(tokenSlice: tokenSlice.dropFirst().dropLast())
             }
 
-            // Find the lowest ranked operation
-            let lowestOperation = tokenSlice.enumerated()
-                .compactMap { (index, token) in
-                    // for each token, try and find a matching operation
-                    if let targetOp = registeredOps.first(where: { $0.matchTokens.contains(token) }) {
-                        return (index: index, op: targetOp)
-                    }
-                    // if we couldn't find one, skip it
-                    return nil
+            // Find the furthest, lowest ranked operation. Note that it cannot be in a bracket.
+            var height = 0
+            var bestIndexAndOp: (Int, any Operator)?
+            for (index, token) in tokenSlice.enumerated().reversed() {
+                // handle brackets
+                switch token {
+                case .openBracket: height += 1; continue
+                case .closeBracket: height -= 1; continue
+                default: break
                 }
-                // sort by lowest priority
-                .min(by: { $0.op.priority.rawValue < $1.op.priority.rawValue })
 
-            guard let (opIndex, op) = lowestOperation else {
+                // determine the operation for this token, else skip
+                guard height == 0,
+                      let targetOp = registeredOps.first(where: { $0.matchTokens.contains(token) })
+                else { continue }
+
+                // If it has a lower priority than the current best, it becomes the new best
+                if let bestOp = bestIndexAndOp?.1 {
+                    if targetOp.priority.rawValue < bestOp.priority.rawValue {
+                        bestIndexAndOp = (index, targetOp)
+                    }
+                } else {
+                    // if no current best, it wins by default
+                    bestIndexAndOp = (index, targetOp)
+                }
+            }
+
+            guard let (opIndex, op) = bestIndexAndOp else {
                 throw TreeBuildingError.invalidSyntax
             }
 

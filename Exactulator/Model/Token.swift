@@ -50,6 +50,9 @@ enum Token: ExpressibleByStringLiteral, Hashable {
     }
 
     init?(checking value: String) {
+        // no such thing as an empty token
+        if value.isEmpty { return nil }
+
         if value.allSatisfy({ digitCharSet.contains($0) }) {
             self = .numerical(value); return
         } else if value.allSatisfy({ $0.isLetter }) {
@@ -113,7 +116,7 @@ extension [Token] {
                 fatalError("... i have no clue what happened here")
             }
         }
-        if let newToken = Token(checking: currentRange) {
+        if !currentRange.isEmpty, let newToken = Token(checking: currentRange) {
             tokens.append(newToken)
         }
 

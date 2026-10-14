@@ -2,13 +2,16 @@ import SwiftUI
 import Playgrounds
 
 struct ContentView: View {
+    @State var expression: String = ""
+    @State var result: String = ""
+
     var body: some View {
-        Text("Hello, world!")
-            .padding()
-            .onTapGesture {
+        List {
+            TextField("Expression", text: $expression)
+                .keyboardType(.asciiCapable)
+            Button("Calculate") {
                 do {
                     let manager = ExpressionManager()
-                    manager.expression = "1+2+3+4"
                     manager.registeredOps = [
                         AdditionOperator.shared,
                         SubtractionOperator.shared,
@@ -20,14 +23,19 @@ struct ContentView: View {
                         CosOperator.shared,
                         TanOperator.shared
                     ]
-                    // manager.expression =
 
+                    manager.expression = expression
                     let tree = try manager.computeOperationTree()
                     print(tree.description)
-                    print(try tree.solve())
+                    let solution = try tree.solve()
+                    print(solution)
+                    result = solution.description
                 } catch {
                     print("Tree error: \(error)")
+                    result = "Tree error: \(error)"
                 }
             }
+            Text("Result: \(result)")
+        }
     }
 }
