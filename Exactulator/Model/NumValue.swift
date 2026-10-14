@@ -43,6 +43,46 @@ enum NumValue {
             return String(imprecise.value)
         }
     }
+
+    static func bestGuess(value: String) -> NumValue {
+        let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = NumValue.imprecise(.init(value: Double(value) ?? .nan))
+
+        guard !value.isEmpty else { return fallback }
+
+        let parts = value.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count <= 2 else { return fallback }
+
+        let integerPart = String(parts[0])
+        let fractionalPart = parts.count == 2 ? String(parts[1]) : ""
+
+        guard !integerPart.isEmpty || !fractionalPart.isEmpty else {
+            return fallback
+        }
+
+        // Require ordinary decimal notation, optionally with a leading sign.
+        let digits = integerPart + fractionalPart
+        let unsignedDigits = digits.first == "-" || digits.first == "+"
+        ? String(digits.dropFirst())
+        : digits
+
+        guard !unsignedDigits.isEmpty,
+              unsignedDigits.allSatisfy(\.isNumber),
+              unsignedDigits.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
+              let numerator = Int(digits)
+                else {
+            return fallback
+        }
+
+        var denominator = 1
+        for _ in fractionalPart {
+            let (next, overflow) = denominator.multipliedReportingOverflow(by: 10)
+            guard !overflow else { return fallback }
+            denominator = next
+        }
+
+        return .exact(.init(numerator, div: denominator))
+    }
 }
 
 /// A value in the form `n / d * pi^p * sqrt(b)` where:

@@ -11,7 +11,7 @@ protocol Operator {
     /// The name of the operator
     var name: String { get }
     /// What tokens match to this operator
-    var matchTokens: [Token] { get }
+    var matchTokens: Set<Token> { get }
     /// The operator's calculation priority
     var priority: OperatorPriority { get }
     static var shared: Self { get }
@@ -48,7 +48,7 @@ protocol FunctionOperator: Operator {
 
 struct AdditionOperator: InfixOperator {
     var name: String { "add" }
-    var matchTokens: [Token] { ["+"] }
+    var matchTokens: Set<Token> { ["+"] }
     var priority: OperatorPriority { .addition }
 
     static let shared: AdditionOperator = .init()
@@ -82,7 +82,7 @@ struct AdditionOperator: InfixOperator {
 
 struct SubtractionOperator: InfixOperator, PrefixOperator {
     var name: String { "subtract" }
-    var matchTokens: [Token] { ["-"] }
+    var matchTokens: Set<Token> { ["-"] }
     var priority: OperatorPriority { .addition }
 
     static let shared: SubtractionOperator = .init()
@@ -104,7 +104,7 @@ struct SubtractionOperator: InfixOperator, PrefixOperator {
 
 struct MultiplicationOperator: InfixOperator {
     var name: String { "multiply" }
-    var matchTokens: [Token] { ["×", "*"] }
+    var matchTokens: Set<Token> { ["×", "*"] }
     var priority: OperatorPriority { .multiplication }
 
     static let shared: MultiplicationOperator = .init()
@@ -138,7 +138,7 @@ struct MultiplicationOperator: InfixOperator {
 
 struct DivisionOperator: InfixOperator {
     var name: String { "divide" }
-    var matchTokens: [Token] { ["÷", "/"] }
+    var matchTokens: Set<Token> { ["÷", "/"] }
     var priority: OperatorPriority { .multiplication }
 
     static let shared: DivisionOperator = .init()
@@ -168,9 +168,23 @@ struct DivisionOperator: InfixOperator {
     }
 }
 
+/// Represents a bracket, which is essentially the function `f(x) = x`
+struct SubexpressionOperator: FunctionOperator {
+    var name: String { "subexpression" }
+    var matchTokens: Set<Token> { [] }
+    var priority: OperatorPriority { .bracket }
+    var argumentCount: ClosedRange<Int> { 1...1 }
+
+    static let shared: SubexpressionOperator = .init()
+
+    func result(elements: [NumValue]) -> NumValue {
+        return elements.first!
+    }
+}
+
 struct LogOperator: FunctionOperator {
     var name: String { "log" }
-    var matchTokens: [Token] { ["log"] }
+    var matchTokens: Set<Token> { ["log"] }
     var priority: OperatorPriority { .bracket }
     var argumentCount: ClosedRange<Int> { 1...2 }
 
@@ -187,7 +201,7 @@ struct LogOperator: FunctionOperator {
 
 struct SinOperator: FunctionOperator {
     var name: String { "sin" }
-    var matchTokens: [Token] { ["sin"] }
+    var matchTokens: Set<Token> { ["sin"] }
     var priority: OperatorPriority { .bracket }
     var argumentCount: ClosedRange<Int> { 1...1 }
 
@@ -269,7 +283,7 @@ struct SinOperator: FunctionOperator {
 
 struct CosOperator: FunctionOperator {
     var name: String { "cos" }
-    var matchTokens: [Token] { ["cos"] }
+    var matchTokens: Set<Token> { ["cos"] }
     var priority: OperatorPriority { .bracket }
     var argumentCount: ClosedRange<Int> { 1...1 }
 
@@ -294,7 +308,7 @@ struct CosOperator: FunctionOperator {
 
 struct TanOperator: FunctionOperator {
     var name: String { "tan" }
-    var matchTokens: [Token] { ["tan"] }
+    var matchTokens: Set<Token> { ["tan"] }
     var priority: OperatorPriority { .bracket }
     var argumentCount: ClosedRange<Int> { 1...1 }
 

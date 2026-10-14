@@ -7,58 +7,77 @@
 
 import Foundation
 
+var digitCharSet: Set<Character> = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]
+var bracketCharSet: Set<Character> = ["(", ")"]
+
 /// A token consists of characters where all characters fall under one of the following categories:
 /// - Numerical values and period
 /// - Brackets
 /// - Latin and greek alphabets
 /// - Everything else that does not fall under the first three categories
-struct Token: ExpressibleByStringLiteral {
-    var char: String
-    var category: ContentCategory
+enum Token: ExpressibleByStringLiteral, Hashable {
+    case numerical(String)
+    case openBracket
+    case closeBracket
+    case letter(String)
+    case other(String)
 
-    enum ContentCategory {
-        /// Numerical values and the period
-        case numerical
-        /// Brackets
-        case bracket
-        /// Latin and greek letters
-        case letter
-        /// Everything non-alphanumeric and non-bracket
-        case other
-
-        static func from(string: String) -> ContentCategory? {
-            // Empty string is an invalid token
-            guard let first = string.first else { return nil }
-
-            // Get the initial type
-            let category = ContentCategory.from(char: first)
-            if string.contains(where: { ContentCategory.from(char: $0) != category }) {
-                // Contains strings from different categories
-                return nil
-            }
-            return category
-        }
-
-        static func from(char: Character) -> ContentCategory {
-            switch char {
-            case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".": return .numerical
-            case "(", "[", "{", "}", "]", ")": return .bracket
-            default: break
-            }
-
-            return char.isLetter ? .letter : .other
+    var string: String {
+        switch self {
+        case .numerical(let string): string
+        case .openBracket: "("
+        case .closeBracket: ")"
+        case .letter(let string): string
+        case .other(let string): string
         }
     }
 
     init(stringLiteral value: String) {
-        self.char = value
-        self.category = .from(string: value)!
+        let char = value.first!
+        switch char {
+        case "(": self = .openBracket
+        case ")": self = .closeBracket
+        default: break
+        }
+
+        if digitCharSet.contains(char) {
+            self = .numerical(value)
+        } else if char.isLetter {
+            self = .letter(value)
+        } else {
+            self = .other(value)
+        }
     }
 
-    init?(string: String) {
-        guard let category = ContentCategory.from(string: string) else { return nil }
-        self.char = string
-        self.category = category
+    init?(checking value: String) {
+        guard let first = value.first else { return nil }
+
+        if value.allSatisfy({ digitCharSet.contains($0) }) {
+            self = .numerical(value); return
+        } else if value.allSatisfy({ $0.isLetter }) {
+            self = .letter(value); return
+        } else if value.count == 1 {
+            switch value {
+            case "(": self = .openBracket; return
+            case ")": self = .closeBracket; return
+            default: break
+            }
+        }
+
+        if !value.contains(where: { digitCharSet.contains($0) || $0.isLetter || bracketCharSet.contains($0) }) {
+            self = .other(value); return
+        }
+
+        return nil
+    }
+}
+
+private extension Token {
+    var singleChar: Bool {
+        switch self {
+        case .numerical, .letter, .other: false
+        case .openBracket, .closeBracket: true
+        }
     }
 }
 
@@ -66,23 +85,31 @@ extension [Token] {
     static func build(from source: String) -> [Token] {
         // break into tokens
         var currentRange: String = ""
+        var currentToken: Token?
         var tokens: [Token] = []
         for char in source {
             // ignore whitespace
             if char.isWhitespace { continue }
 
             // build token
-            let newRange = currentRange + String(char)
-            if Token.ContentCategory.from(string: newRange) != nil {
+            let charStr = String(char)
+            let newRange = currentRange + charStr
+            var shouldAppendToken: Bool
+            if let newToken = Token(checking: newRange) {
                 currentRange = newRange
+                currentToken = newToken
+                shouldAppendToken = newToken.singleChar
             } else {
-                if let newToken = Token(string: currentRange) {
-                    tokens.append(newToken)
-                }
-                currentRange = String(char)
+                shouldAppendToken = true
+            }
+
+            if shouldAppendToken {
+                if let currentToken { tokens.append(currentToken) }
+                currentToken = nil
+                currentRange = charStr
             }
         }
-        if let newToken = Token(string: currentRange) {
+        if let newToken = Token(checking: currentRange) {
             tokens.append(newToken)
         }
 
