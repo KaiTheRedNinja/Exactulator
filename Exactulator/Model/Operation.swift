@@ -8,11 +8,16 @@
 import Foundation
 
 protocol Operation {
+    var description: String { get }
     func solve() throws(OperatorError) -> NumValue
 }
 
 struct ValueOperation: Operation {
     var value: NumValue
+
+    var description: String {
+        value.description
+    }
 
     func solve() throws(OperatorError) -> NumValue {
         value
@@ -24,6 +29,16 @@ struct InfixOperation: Operation {
     var lhs: any Operation
     var rhs: any Operation
 
+    var description: String {
+        """
+        {
+            op: \(op.name),
+            lhs: \((lhs.description).split(separator: "\n").map { "    \($0)" }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)),
+            rhs: \((rhs.description).split(separator: "\n").map { "    \($0)" }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        """
+    }
+
     func solve() throws(OperatorError) -> NumValue {
         try op.result(lhs: lhs.solve(), rhs: rhs.solve())
     }
@@ -32,6 +47,15 @@ struct InfixOperation: Operation {
 struct PrefixOperation: Operation {
     var op: any PrefixOperator
     var rhs: any Operation
+
+    var description: String {
+        """
+        {
+            op: \(op.name),
+            rhs: \((rhs.description).split(separator: "\n").map { "    \($0)" }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        """
+    }
 
     func solve() throws(OperatorError) -> NumValue {
         try op.result(rhs: rhs.solve())
@@ -42,6 +66,15 @@ struct PostfixOperation: Operation {
     var op: any PostfixOperator
     var lhs: any Operation
 
+    var description: String {
+        """
+        {
+            op: \(op.name),
+            lhs: \((lhs.description).split(separator: "\n").map { "    \($0)" }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        """
+    }
+
     func solve() throws(OperatorError) -> NumValue {
         try op.result(lhs: lhs.solve())
     }
@@ -50,6 +83,23 @@ struct PostfixOperation: Operation {
 struct FunctionOperation: Operation {
     var op: any FunctionOperator
     var elements: [any Operation]
+
+    var description: String {
+        """
+        {
+            op: \(op.name),
+            \(elements.enumerated()
+                .map {
+                    "\($0.offset): " + ($0.element.description)
+                    .split(separator: "\n")
+                    .map { "    \($0)" }
+                    .joined(separator: "\n")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                }.joined(separator: ",\n    ")
+            )
+        }
+        """
+    }
 
     func solve() throws(OperatorError) -> NumValue {
         guard op.argumentCount.contains(elements.count) else { fatalError("Wrong number of elements") }

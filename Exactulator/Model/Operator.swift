@@ -79,13 +79,18 @@ struct AdditionOperator: InfixOperator {
         }
 
         // cross-multiply to sum together
-        let exactSum = Exact(
-            numerator: (lhsExact.numerator * rhsExact.denominator) + (rhsExact.numerator * lhsExact.denominator),
-            denominator: lhsExact.numerator * rhsExact.denominator,
-            piPower: lhsExact.piPower,
-            surdBase: lhsExact.surdBase
-        )
-        return .exact(exactSum)
+        do {
+            let exactSum = try Exact(
+                numerator: (lhsExact.numerator * rhsExact.denominator) + (rhsExact.numerator * lhsExact.denominator),
+                denominator: lhsExact.denominator * rhsExact.denominator,
+                piPower: lhsExact.piPower,
+                surdBase: lhsExact.surdBase
+            )
+            .normalised()
+            return .exact(exactSum)
+        } catch {
+            throw OperatorError.exactError(error)
+        }
     }
 }
 
@@ -139,13 +144,18 @@ struct MultiplicationOperator: InfixOperator {
         }
 
         // multiply everything
-        let exactProduct = Exact(
-            numerator: lhsExact.numerator * rhsExact.numerator,
-            denominator: lhsExact.denominator * rhsExact.denominator,
-            piPower: lhsExact.piPower + rhsExact.piPower,
-            surdBase: lhsExact.surdBase * rhsExact.surdBase
-        )
-        return .exact(exactProduct)
+        do {
+            let exactProduct = try Exact(
+                numerator: lhsExact.numerator * rhsExact.numerator,
+                denominator: lhsExact.denominator * rhsExact.denominator,
+                piPower: lhsExact.piPower + rhsExact.piPower,
+                surdBase: lhsExact.surdBase * rhsExact.surdBase
+            )
+                .normalised()
+            return .exact(exactProduct)
+        } catch {
+            throw OperatorError.exactError(error)
+        }
     }
 }
 

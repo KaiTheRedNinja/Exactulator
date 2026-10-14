@@ -73,8 +73,8 @@ enum Token: ExpressibleByStringLiteral, Hashable {
 private extension Token {
     var singleChar: Bool {
         switch self {
-        case .numerical, .letter, .other: false
-        case .openBracket, .closeBracket: true
+        case .numerical, .letter: false
+        case .other, .openBracket, .closeBracket: true
         }
     }
 }
@@ -83,7 +83,6 @@ extension [Token] {
     static func build(from source: String) -> [Token] {
         // break into tokens
         var currentRange: String = ""
-        var currentToken: Token?
         var tokens: [Token] = []
         for char in source {
             // ignore whitespace
@@ -92,19 +91,26 @@ extension [Token] {
             // build token
             let charStr = String(char)
             let newRange = currentRange + charStr
-            var shouldAppendToken: Bool
-            if let newToken = Token(checking: newRange) {
-                currentRange = newRange
-                currentToken = newToken
-                shouldAppendToken = newToken.singleChar
-            } else {
-                shouldAppendToken = true
-            }
-
-            if shouldAppendToken {
-                if let currentToken { tokens.append(currentToken) }
-                currentToken = nil
+            // if the new range results in a broken token, commit the previous token, reset current range
+            if Token(checking: newRange) == nil {
+                if let oldToken = Token(checking: currentRange) {
+                    tokens.append(oldToken)
+                    currentRange = charStr
+                }
+                // invalid token, cut range
                 currentRange = charStr
+            } else {
+                // valid token, extend the current range
+                currentRange = newRange
+            }
+            // check again whether this range works, and if it should also be committed
+            if let newToken = Token(checking: currentRange) {
+                if newToken.singleChar {
+                    tokens.append(newToken)
+                    currentRange = ""
+                }
+            } else {
+                fatalError("... i have no clue what happened here")
             }
         }
         if let newToken = Token(checking: currentRange) {

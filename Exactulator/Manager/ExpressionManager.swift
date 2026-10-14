@@ -28,7 +28,7 @@ class ExpressionManager {
     // Not supported:
     // Functions: `sin(a)`
     // Implicit multiplication: `ab`
-    func computeOperationTree() throws {
+    func computeOperationTree() throws(TreeBuildingError) -> any Operation {
         // convert the expression into tokens
         var tokens: [Token] = .build(from: expression)
 
@@ -49,7 +49,7 @@ class ExpressionManager {
 
         // we recurse. Counterintuitively, it is the *lowest* rated operation that is split up first,
         // because operations are solved deepest-first. Therefore the last operation to happen is the highest up.
-        func computeSubexpression(tokenSlice: ArraySlice<Token>) throws -> any Operation {
+        func computeSubexpression(tokenSlice: ArraySlice<Token>) throws(TreeBuildingError) -> any Operation {
             guard !tokenSlice.isEmpty else { throw TreeBuildingError.invalidSyntax }
             let first = tokenSlice.first!
             let last = tokenSlice.last!
@@ -83,10 +83,10 @@ class ExpressionManager {
 
             // get the subexpression for the content on the left, if any
             let lhsContent: (any Operation)? = if opIndex > 0 {
-                try computeSubexpression(tokenSlice: tokenSlice[..<opIndex])
+                try computeSubexpression(tokenSlice: tokenSlice[..<(tokenSlice.startIndex + opIndex)])
             } else { nil }
             let rhsContent: (any Operation)? = if opIndex < tokenSlice.count - 1 {
-                try computeSubexpression(tokenSlice: tokenSlice[(opIndex + 1)...])
+                try computeSubexpression(tokenSlice: tokenSlice[(tokenSlice.startIndex + opIndex + 1)...])
             } else { nil }
 
             if let lhsContent, let rhsContent, let op = op as? InfixOperator {
@@ -102,11 +102,6 @@ class ExpressionManager {
 
             throw TreeBuildingError.unsupportedOperatorPosition
         }
-        do {
-            let finalTree = try computeSubexpression(tokenSlice: tokens[tokens.startIndex..<tokens.endIndex])
-            print("Final tree: \(finalTree)")
-        } catch {
-            print("Tree building error: \(error)")
-        }
+        return try computeSubexpression(tokenSlice: tokens[tokens.startIndex..<tokens.endIndex])
     }
 }
