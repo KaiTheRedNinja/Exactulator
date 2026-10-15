@@ -12,23 +12,27 @@ struct OperationHolder {
     var registeredPrefixOps: [String: any PrefixOperator]
     var registeredPostfixOps: [String: any PostfixOperator]
     var registeredFunctionOps: [String: any FunctionOperator]
+    var registeredConstantOps: [String: any ConstantOperator]
     var registeredImplicitInfixOp: ImplicitInfixOperator?
 
     var tokenMatchInfix: [Token: String]
     var tokenMatchPrefix: [Token: String]
     var tokenMatchPostfix: [Token: String]
     var tokenMatchFunction: [Token: String]
+    var tokenMatchConstant: [Token: String]
 
     init(all: [any Operator]) {
         self.registeredInfixOps = [:]
         self.registeredPrefixOps = [:]
         self.registeredPostfixOps = [:]
         self.registeredFunctionOps = [:]
+        self.registeredConstantOps = [:]
         self.registeredImplicitInfixOp = nil
         self.tokenMatchInfix = [:]
         self.tokenMatchPrefix = [:]
         self.tokenMatchPostfix = [:]
         self.tokenMatchFunction = [:]
+        self.tokenMatchConstant = [:]
 
         for op in all {
             if let op = op as? InfixOperator {
@@ -50,6 +54,11 @@ struct OperationHolder {
                 if registeredFunctionOps[op.name] != nil { fatalError("Duplicate operations of same type") }
                 registeredFunctionOps[op.name] = op
                 op.matchTokens.forEach { tokenMatchFunction[$0] = op.name }
+            }
+            if let op = op as? ConstantOperator {
+                if registeredFunctionOps[op.name] != nil { fatalError("Duplicate operations of same type") }
+                registeredConstantOps[op.name] = op
+                op.matchTokens.forEach { tokenMatchConstant[$0] = op.name }
             }
             if let op = op as? ImplicitInfixOperator {
                 if registeredImplicitInfixOp != nil { fatalError("There may only be one implicit infix operator") }
@@ -81,6 +90,13 @@ struct OperationHolder {
 
     func match(functionToken: Token) -> any FunctionOperator? {
         if let name = tokenMatchFunction[functionToken], let op = registeredFunctionOps[name] {
+            return op
+        }
+        return nil
+    }
+
+    func match(constantToken: Token) -> any ConstantOperator? {
+        if let name = tokenMatchConstant[constantToken], let op = registeredConstantOps[name] {
             return op
         }
         return nil

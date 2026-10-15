@@ -61,14 +61,18 @@ class ExpressionManager {
             case operation(any Operation)
         }
 
-        // map all tokens into working tokens. We first convert values into operations, because those are the most direct.
+        // map all tokens into working tokens. We first convert values and constants into operations
         var startWorkingTokens: [WorkingToken] = []
         for token in tokens {
             switch token {
             case .numerical(let string):
                 startWorkingTokens.append(.operation(ValueOperation(value: .bestGuess(value: string))))
             default:
-                startWorkingTokens.append(.token(token))
+                if let op = registeredOps.match(constantToken: token) {
+                    startWorkingTokens.append(.operation(ConstantOperation(constant: op)))
+                } else {
+                    startWorkingTokens.append(.token(token))
+                }
             }
         }
 

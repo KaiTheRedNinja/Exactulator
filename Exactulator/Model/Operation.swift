@@ -26,6 +26,19 @@ struct ValueOperation: Operation {
     }
 }
 
+/// An operation which simply returns a stored constant
+struct ConstantOperation: Operation {
+    var constant: any ConstantOperator
+
+    var description: String {
+        constant.name
+    }
+
+    func solve() throws(OperatorError) -> NumValue {
+        try constant.result()
+    }
+}
+
 /// An operation that uses an operator to provide a result given a value to the left and right
 struct InfixOperation: Operation {
     var op: any InfixOperator

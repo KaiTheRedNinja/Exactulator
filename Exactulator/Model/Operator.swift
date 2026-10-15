@@ -72,6 +72,12 @@ protocol FunctionOperator: Operator {
 protocol ImplicitInfixOperator: InfixOperator {
 }
 
+/// An operator which just matches directly to a value
+protocol ConstantOperator: Operator {
+    /// Returns the constant value
+    func result() throws(OperatorError) -> NumValue
+}
+
 /// An operator that performs addition
 struct AdditionOperator: InfixOperator {
     var name: String { "add" }
@@ -417,5 +423,38 @@ struct TanOperator: FunctionOperator {
         }
 
         return .imprecise(.init(value: tan(input.asImprecise.value)))
+    }
+}
+
+/// An operator that performs the square root function
+struct SquareRootOperator: FunctionOperator {
+    var name: String { "sqrt" }
+    var matchTokens: Set<Token> { ["sqrt", "√"] }
+    var priority: OperatorPriority { .bracket }
+    var argumentCount: ClosedRange<Int> { 1...1 }
+
+    static let shared: SquareRootOperator = .init()
+
+    func result(elements: [NumValue]) -> NumValue {
+        let input = elements.first!
+        // must not be in terms of pi, must not already have a sqrt, must be whole
+        if case let .exact(exact) = input, exact.denominator == 1, exact.piPower == 0, exact.surdBase == 1 {
+            return .exact(.init(1, surd: exact.numerator))
+        }
+
+        return .imprecise(.init(value: sqrt(input.asImprecise.value)))
+    }
+}
+
+/// The constant Pi
+struct PiOperator: ConstantOperator {
+    var name: String { "pi" }
+    var matchTokens: Set<Token> { ["pi", "π"] }
+    var priority: OperatorPriority { .bracket }
+
+    static let shared: PiOperator = .init()
+
+    func result() -> NumValue {
+        .exact(.init(1, pi: 1))
     }
 }

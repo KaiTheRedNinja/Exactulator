@@ -9,6 +9,8 @@ struct ContentView: View {
         List {
             TextField("Expression", text: $expression)
                 .keyboardType(.asciiCapable)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
             Button("Calculate") {
                 do {
                     let manager = ExpressionManager(registeredOps: .init(all: [
@@ -20,7 +22,9 @@ struct ContentView: View {
                         LogOperator.shared,
                         SinOperator.shared,
                         CosOperator.shared,
-                        TanOperator.shared
+                        TanOperator.shared,
+                        SquareRootOperator.shared,
+                        PiOperator.shared
                     ]))
 
                     let tree = try manager.computeOperationTree(expression: expression)
