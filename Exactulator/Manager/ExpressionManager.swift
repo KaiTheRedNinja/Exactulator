@@ -22,8 +22,8 @@ class ExpressionManager {
 
     // Currently planned supported syntax:
     // Infix: `a + b`
-    // Prefix: `-a` // currently broken!
-    // Postfix: `a!` // currently broken!
+    // Prefix: `-a`
+    // Postfix: `a!`
     //
     // Not supported:
     // Functions: `sin(a)`
@@ -47,75 +47,160 @@ class ExpressionManager {
         // however there may be more open than close brackets, so we just close them at the end.
         tokens.append(contentsOf: [Token](repeating: .closeBracket, count: height))
 
-        // we recurse. Counterintuitively, it is the *lowest* rated operation that is split up first,
-        // because operations are solved deepest-first. Therefore the last operation to happen is the highest up.
-        func computeSubexpression(tokenSlice: ArraySlice<Token>) throws(TreeBuildingError) -> any Operation {
-            guard !tokenSlice.isEmpty else { throw TreeBuildingError.invalidSyntax }
-            let first = tokenSlice.first!
-            let last = tokenSlice.last!
+        enum WorkingToken {
+            case token(Token)
+            case operation(any Operation)
+        }
 
-            if tokenSlice.count == 1 {
-                guard case let .numerical(string) = first else { throw TreeBuildingError.invalidSyntax }
-                return ValueOperation(value: .bestGuess(value: string))
+        // build index of operators
+        let postfixOps = registeredOps.compactMap { $0 as? PostfixOperator }
+        let prefixOps = registeredOps.compactMap { $0 as? PrefixOperator }
+        let infixOps = registeredOps.compactMap { $0 as? InfixOperator }
+        // TODO: function operators
+        // TODO: implicit multiplication operators
+
+        // map all tokens into working tokens. We first convert values into operations, because those are the most direct.
+        var startWorkingTokens: [WorkingToken] = []
+        for token in tokens {
+            switch token {
+            case .numerical(let string):
+                startWorkingTokens.append(.operation(ValueOperation(value: .bestGuess(value: string))))
+            default:
+                startWorkingTokens.append(.token(token))
             }
+        }
 
-            // If the subexpression starts and ends with a bracket, take it out
-            if first == .openBracket && last == .closeBracket {
-                return try computeSubexpression(tokenSlice: tokenSlice.dropFirst().dropLast())
-            }
-
-            // Find the furthest, lowest ranked operation. Note that it cannot be in a bracket.
-            var height = 0
-            var bestIndexAndOp: (Int, any Operator)?
-            for (index, token) in tokenSlice.enumerated().reversed() {
-                // handle brackets
+        // until there is only one working token left, we do the following:
+        // 1. Find any brackets and get operations from them
+        // 2. Find the highest-ranked operator, searcing in the order postfix -> prefix -> infix
+        func computeSubexpression(workingTokens: ArraySlice<WorkingToken>) throws(TreeBuildingError) -> any Operation {
+            // scan for brackets, get them solved
+            var bracketStartIndex: Int?
+            var height: Int = 0
+            var replacements: [(Range<Int>, any Operation)] = []
+            for (index, workToken) in workingTokens.enumerated() {
+                guard case let .token(token) = workToken else { continue }
                 switch token {
-                case .openBracket: height += 1; continue
-                case .closeBracket: height -= 1; continue
-                default: break
-                }
-
-                // determine the operation for this token, else skip
-                guard height == 0,
-                      let targetOp = registeredOps.first(where: { $0.matchTokens.contains(token) })
-                else { continue }
-
-                // If it has a lower priority than the current best, it becomes the new best
-                if let bestOp = bestIndexAndOp?.1 {
-                    if targetOp.priority.rawValue < bestOp.priority.rawValue {
-                        bestIndexAndOp = (index, targetOp)
+                case .openBracket:
+                    height += 1
+                    if height == 1 { bracketStartIndex = index }
+                case .closeBracket:
+                    height -= 1
+                    if height == 0 {
+                        // We have exited a bracket, time to solve!
+                        // note that we drop the first and last item, because those are brackets and will result in infinite loops.
+                        let subexpression = try computeSubexpression(workingTokens: workingTokens[(bracketStartIndex!+1)..<index])
+                        replacements.append((
+                            bracketStartIndex!..<(index+1),
+                            FunctionOperation(
+                                op: SubexpressionOperator.shared,
+                                elements: [subexpression]
+                            )
+                        ))
+                        bracketStartIndex = nil
                     }
-                } else {
-                    // if no current best, it wins by default
-                    bestIndexAndOp = (index, targetOp)
+                default: continue
                 }
             }
 
-            guard let (opIndex, op) = bestIndexAndOp else {
+            // get a mutable copy and substitute
+            var workingTokensMut = Array(workingTokens)
+            for (replacementRange, op) in replacements {
+                workingTokensMut.replaceSubrange(replacementRange, with: [.operation(op)])
+            }
+
+            // Find the highest-ranked operator, searcing in the order postfix -> prefix -> infix. Then optimise.
+            while workingTokensMut.count > 1 {
+                // search for highest ranked valid postfix operations
+                do {
+                    var highestPostfix: any PostfixOperator?
+                    var replacement: (Range<Int>, PostfixOperation)?
+                    for (index, workToken) in workingTokensMut.enumerated().dropFirst() {
+                        // must be a token, have valid LHS, and invalid RHS to be postfix
+                        guard case let .token(token) = workToken,
+                              case let .operation(lhs) = workingTokensMut[index-1]
+                                else { continue }
+                        if index < workingTokensMut.count-1, case .operation = workingTokensMut[index+1] { continue }
+                        // determine what operator it matches
+                        guard let op = postfixOps.first(where: { $0.matchTokens.contains(token) }) else { continue }
+                        // determine if it is of a higher priority
+                        if highestPostfix == nil || op.priority.rawValue > highestPostfix!.priority.rawValue {
+                            highestPostfix = op
+                            // mark the LHS and this item as for replacement
+                            // note that index-1..<index+1 is [index-1, index+1) = [index-1, index]
+                            replacement = ((index-1)..<(index+1), PostfixOperation(op: op, lhs: lhs))
+                        }
+                    }
+                    // replace and continue the main loop if one is found
+                    if let (replacementRange, op) = replacement {
+                        workingTokensMut.replaceSubrange(replacementRange, with: [.operation(op)])
+                        continue
+                    }
+                }
+
+                // search for highest ranked valid prefix operations
+                do {
+                    var highestPrefix: any PrefixOperator?
+                    var replacement: (Range<Int>, PrefixOperation)?
+                    for (index, workToken) in workingTokensMut.enumerated().dropLast() {
+                        // must be a token, have valid RHS, and invalid LHS to be prefix
+                        guard case let .token(token) = workToken,
+                              case let .operation(rhs) = workingTokensMut[index+1]
+                        else { continue }
+                        if index > 0, case .operation = workingTokensMut[index-1] { continue }
+                        // determine what operator it matches
+                        guard let op = prefixOps.first(where: { $0.matchTokens.contains(token) }) else { continue }
+                        // determine if it is of a higher priority
+                        if highestPrefix == nil || op.priority.rawValue > highestPrefix!.priority.rawValue {
+                            highestPrefix = op
+                            // mark the RHS and this item as for replacement
+                            // note that index..<index+2 is [index, index+2) = [index, index+1]
+                            replacement = (index..<(index+2), PrefixOperation(op: op, rhs: rhs))
+                        }
+                    }
+                    // replace and continue the main loop if one is found
+                    if let (replacementRange, op) = replacement {
+                        workingTokensMut.replaceSubrange(replacementRange, with: [.operation(op)])
+                        continue
+                    }
+                }
+
+                // search for highest ranked valid infix operations
+                do {
+                    var highestInfix: any InfixOperator?
+                    var replacement: (Range<Int>, InfixOperation)?
+                    for (index, workToken) in workingTokensMut.enumerated().dropFirst().dropLast() {
+                        // must be a token, have valid LHS and RHS to be an infix
+                        guard case let .token(token) = workToken,
+                              case let .operation(lhs) = workingTokensMut[index-1],
+                              case let .operation(rhs) = workingTokensMut[index+1]
+                        else { continue }
+                        // determine what operator it matches
+                        guard let op = infixOps.first(where: { $0.matchTokens.contains(token) }) else { continue }
+                        // determine if it is of a higher priority
+                        if highestInfix == nil || op.priority.rawValue > highestInfix!.priority.rawValue {
+                            highestInfix = op
+                            // mark this item, LHS, and RHS for replacement
+                            // note that index-1..<index+2 is [index-1, index+2) = [index-1, index+1]
+                            replacement = ((index-1)..<(index+2), InfixOperation(op: op, lhs: lhs, rhs: rhs))
+                        }
+                    }
+                    // replace and continue the main loop if one is found
+                    if let (replacementRange, op) = replacement {
+                        workingTokensMut.replaceSubrange(replacementRange, with: [.operation(op)])
+                        continue
+                    }
+                }
+            }
+
+            guard let reduced = workingTokensMut.first, case let .operation(operation) = reduced else {
                 throw TreeBuildingError.invalidSyntax
             }
-
-            // get the subexpression for the content on the left, if any
-            let lhsContent: (any Operation)? = if opIndex > 0 {
-                try computeSubexpression(tokenSlice: tokenSlice[..<(tokenSlice.startIndex + opIndex)])
-            } else { nil }
-            let rhsContent: (any Operation)? = if opIndex < tokenSlice.count - 1 {
-                try computeSubexpression(tokenSlice: tokenSlice[(tokenSlice.startIndex + opIndex + 1)...])
-            } else { nil }
-
-            if let lhsContent, let rhsContent, let op = op as? InfixOperator {
-                return InfixOperation(op: op, lhs: lhsContent, rhs: rhsContent)
-            }
-            if let rhsContent, let op = op as? PrefixOperator {
-                return PrefixOperation(op: op, rhs: rhsContent)
-            }
-            if let lhsContent, let op = op as? PostfixOperator {
-                return PostfixOperation(op: op, lhs: lhsContent)
-            }
-            // TODO: figure out how to support function operators
-
-            throw TreeBuildingError.unsupportedOperatorPosition
+            return operation
         }
-        return try computeSubexpression(tokenSlice: tokens[tokens.startIndex..<tokens.endIndex])
+
+        return try computeSubexpression(
+            workingTokens: startWorkingTokens[startWorkingTokens.startIndex..<startWorkingTokens.endIndex]
+        )
     }
 }
