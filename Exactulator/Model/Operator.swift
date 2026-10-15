@@ -331,6 +331,8 @@ struct SinOperator: FunctionOperator {
     ]
 
     func specialSine(for angle: Exact) -> Exact? {
+        // if angle is zero, return the zero case. Else it must be a multiple of pi.
+        if angle == .zero { return .zero }
         guard angle.piPower == 1, angle.surdBase == 1 else {
             return nil
         }
