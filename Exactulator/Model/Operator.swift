@@ -51,6 +51,9 @@ protocol FunctionOperator: Operator {
     func result(elements: [NumValue]) throws(OperatorError) -> NumValue
 }
 
+protocol ImplicitInfixOperator: InfixOperator {
+}
+
 struct AdditionOperator: InfixOperator {
     var name: String { "add" }
     var matchTokens: Set<Token> { ["+"] }
@@ -116,7 +119,7 @@ struct SubtractionOperator: InfixOperator, PrefixOperator {
     }
 }
 
-struct MultiplicationOperator: InfixOperator {
+struct MultiplicationOperator: InfixOperator, ImplicitInfixOperator {
     var name: String { "multiply" }
     var matchTokens: Set<Token> { ["×", "*"] }
     var priority: OperatorPriority { .multiplication }

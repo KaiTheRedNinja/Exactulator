@@ -11,8 +11,7 @@ struct ContentView: View {
                 .keyboardType(.asciiCapable)
             Button("Calculate") {
                 do {
-                    let manager = ExpressionManager()
-                    manager.registeredOps = [
+                    let manager = ExpressionManager(registeredOps: .init(all: [
                         AdditionOperator.shared,
                         SubtractionOperator.shared,
                         MultiplicationOperator.shared,
@@ -22,10 +21,9 @@ struct ContentView: View {
                         SinOperator.shared,
                         CosOperator.shared,
                         TanOperator.shared
-                    ]
+                    ]))
 
-                    manager.expression = expression
-                    let tree = try manager.computeOperationTree()
+                    let tree = try manager.computeOperationTree(expression: expression)
                     print(tree.description)
                     let solution = try tree.solve()
                     print(solution)

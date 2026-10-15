@@ -7,9 +7,14 @@
 
 import Playgrounds
 
+
+
 class ExpressionManager {
-    var expression: String = ""
-    var registeredOps: [any Operator] = []
+    var registeredOps: OperationHolder
+
+    init(registeredOps: OperationHolder) {
+        self.registeredOps = registeredOps
+    }
 
     enum TreeBuildingError: Error {
         // Syntax had something wrong with it
@@ -28,7 +33,7 @@ class ExpressionManager {
     // Not supported:
     // Functions: `sin(a)`
     // Implicit multiplication: `ab`
-    func computeOperationTree() throws(TreeBuildingError) -> any Operation {
+    func computeOperationTree(expression: String) throws(TreeBuildingError) -> any Operation {
         // convert the expression into tokens
         var tokens: [Token] = .build(from: expression)
 
@@ -51,13 +56,6 @@ class ExpressionManager {
             case token(Token)
             case operation(any Operation)
         }
-
-        // build index of operators
-        let postfixOps = registeredOps.compactMap { $0 as? PostfixOperator }
-        let prefixOps = registeredOps.compactMap { $0 as? PrefixOperator }
-        let infixOps = registeredOps.compactMap { $0 as? InfixOperator }
-        // TODO: function operators
-        // TODO: implicit multiplication operators
 
         // map all tokens into working tokens. We first convert values into operations, because those are the most direct.
         var startWorkingTokens: [WorkingToken] = []
@@ -122,7 +120,7 @@ class ExpressionManager {
                                 else { continue }
                         if index < workingTokensMut.count-1, case .operation = workingTokensMut[index+1] { continue }
                         // determine what operator it matches
-                        guard let op = postfixOps.first(where: { $0.matchTokens.contains(token) }) else { continue }
+                        guard let op = registeredOps.match(postfixToken: token) else { continue }
                         // determine if it is of a higher priority
                         if highestPostfix == nil || op.priority.rawValue > highestPostfix!.priority.rawValue {
                             highestPostfix = op
@@ -149,7 +147,7 @@ class ExpressionManager {
                         else { continue }
                         if index > 0, case .operation = workingTokensMut[index-1] { continue }
                         // determine what operator it matches
-                        guard let op = prefixOps.first(where: { $0.matchTokens.contains(token) }) else { continue }
+                        guard let op = registeredOps.match(prefixToken: token) else { continue }
                         // determine if it is of a higher priority
                         if highestPrefix == nil || op.priority.rawValue > highestPrefix!.priority.rawValue {
                             highestPrefix = op
@@ -176,7 +174,7 @@ class ExpressionManager {
                               case let .operation(rhs) = workingTokensMut[index+1]
                         else { continue }
                         // determine what operator it matches
-                        guard let op = infixOps.first(where: { $0.matchTokens.contains(token) }) else { continue }
+                        guard let op = registeredOps.match(infixToken: token) else { continue }
                         // determine if it is of a higher priority
                         if highestInfix == nil || op.priority.rawValue > highestInfix!.priority.rawValue {
                             highestInfix = op
