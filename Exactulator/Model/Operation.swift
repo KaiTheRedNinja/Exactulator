@@ -7,11 +7,13 @@
 
 import Foundation
 
+/// An operation is a mathematical primative that can be evaluated to produce a value
 protocol Operation {
     var description: String { get }
     func solve() throws(OperatorError) -> NumValue
 }
 
+/// An operation which simply returns a stored value
 struct ValueOperation: Operation {
     var value: NumValue
 
@@ -24,6 +26,7 @@ struct ValueOperation: Operation {
     }
 }
 
+/// An operation that uses an operator to provide a result given a value to the left and right
 struct InfixOperation: Operation {
     var op: any InfixOperator
     var lhs: any Operation
@@ -44,6 +47,7 @@ struct InfixOperation: Operation {
     }
 }
 
+/// An operation that uses an operator to provide a result given a value to the right
 struct PrefixOperation: Operation {
     var op: any PrefixOperator
     var rhs: any Operation
@@ -62,6 +66,7 @@ struct PrefixOperation: Operation {
     }
 }
 
+/// An operation that uses an operator to provide a result given a value to the left
 struct PostfixOperation: Operation {
     var op: any PostfixOperator
     var lhs: any Operation
@@ -80,6 +85,7 @@ struct PostfixOperation: Operation {
     }
 }
 
+/// An operation that uses an operator to perform a function given function parameters
 struct FunctionOperation: Operation {
     var op: any FunctionOperator
     var elements: [any Operation]

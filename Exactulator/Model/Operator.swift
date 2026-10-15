@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// An operator, which can perform mathematical operations on values
 protocol Operator {
     /// The name of the operator
     var name: String { get }
@@ -14,12 +15,17 @@ protocol Operator {
     var matchTokens: Set<Token> { get }
     /// The operator's calculation priority
     var priority: OperatorPriority { get }
+    /// A shared instance of this operator
     static var shared: Self { get }
 }
 
+/// An error in executing an operation
 enum OperatorError: Error {
+    /// An error with Exact
     case exactError(ExactError)
+    /// Math error
     case mathError
+    /// Syntax error
     case syntaxError
 }
 
@@ -35,26 +41,38 @@ enum OperatorPriority: Int {
     case addition = 1
 }
 
+/// An operator placed between two values, e.g. `1+1`
 protocol InfixOperator: Operator {
+    /// Returns the result of this operation given the values to the left and right of the operator
     func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue
 }
 
+/// An operator placed before a value, e.g. `-1`
 protocol PrefixOperator: Operator {
+    /// Returns the result of this operation given the value to the right of the operator
     func result(rhs: NumValue) throws(OperatorError) -> NumValue
 }
 
+/// An operator placed after a value, e.g. `3!`
 protocol PostfixOperator: Operator {
+    /// Returns the result of this operation given the value to the left of the operator
     func result(lhs: NumValue) throws(OperatorError) -> NumValue
 }
 
+/// An operator that represents a function
 protocol FunctionOperator: Operator {
+    /// The number of arguments that this operator accepts
     var argumentCount: ClosedRange<Int> { get }
+    /// Returns the result of this operation given the parameters passed to the operator.
     func result(elements: [NumValue]) throws(OperatorError) -> NumValue
 }
 
+/// An implicit infix operator. There may only be one of these. Behaviour is used when
+/// no operator is placed between two values, such as `(2)(3)`.
 protocol ImplicitInfixOperator: InfixOperator {
 }
 
+/// An operator that performs addition
 struct AdditionOperator: InfixOperator {
     var name: String { "add" }
     var matchTokens: Set<Token> { ["+"] }
@@ -98,6 +116,7 @@ struct AdditionOperator: InfixOperator {
     }
 }
 
+/// An operator that performs subtraction, including prefix subtraction (`-1`)
 struct SubtractionOperator: InfixOperator, PrefixOperator {
     var name: String { "subtract" }
     var matchTokens: Set<Token> { ["-"] } // yes, these two dashes are different.
@@ -120,6 +139,7 @@ struct SubtractionOperator: InfixOperator, PrefixOperator {
     }
 }
 
+/// An operator that performs multiplication, including implicit multiplication (`(2)(3)`)
 struct MultiplicationOperator: InfixOperator, ImplicitInfixOperator {
     var name: String { "multiply" }
     var matchTokens: Set<Token> { ["×", "*"] }
@@ -163,6 +183,7 @@ struct MultiplicationOperator: InfixOperator, ImplicitInfixOperator {
     }
 }
 
+/// An operator that performs division
 struct DivisionOperator: InfixOperator {
     var name: String { "divide" }
     var matchTokens: Set<Token> { ["÷", "/"] }
@@ -225,6 +246,7 @@ struct ParametersOperator: FunctionOperator {
     }
 }
 
+/// An operator that performs the natural log function. Optionally takes a second parameter for the base.
 struct LogOperator: FunctionOperator {
     var name: String { "log" }
     var matchTokens: Set<Token> { ["log"] }
@@ -249,6 +271,7 @@ struct LogOperator: FunctionOperator {
     }
 }
 
+/// An operator that performs the sine function
 struct SinOperator: FunctionOperator {
     var name: String { "sin" }
     var matchTokens: Set<Token> { ["sin"] }
@@ -331,6 +354,7 @@ struct SinOperator: FunctionOperator {
     }
 }
 
+/// An operator that performs the cosine function
 struct CosOperator: FunctionOperator {
     var name: String { "cos" }
     var matchTokens: Set<Token> { ["cos"] }
@@ -356,6 +380,7 @@ struct CosOperator: FunctionOperator {
     }
 }
 
+/// An operator that performs the tangent function
 struct TanOperator: FunctionOperator {
     var name: String { "tan" }
     var matchTokens: Set<Token> { ["tan"] }
