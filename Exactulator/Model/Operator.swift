@@ -20,6 +20,7 @@ protocol Operator {
 enum OperatorError: Error {
     case exactError(ExactError)
     case mathError
+    case syntaxError
 }
 
 /// Operator priority, higher number = higher priority. Follows PEMDAS.
@@ -207,6 +208,20 @@ struct SubexpressionOperator: FunctionOperator {
 
     func result(elements: [NumValue]) throws(OperatorError) -> NumValue {
         return elements.first!
+    }
+}
+
+/// Represents a bracket with commas inside of it, which basically mean these are function parameters
+struct ParametersOperator: FunctionOperator {
+    var name: String { "subexpression" }
+    var matchTokens: Set<Token> { [] }
+    var priority: OperatorPriority { .bracket }
+    var argumentCount: ClosedRange<Int> { 1...100_000 }
+
+    static let shared: ParametersOperator = .init()
+
+    func result(elements: [NumValue]) throws(OperatorError) -> NumValue {
+        throw OperatorError.syntaxError
     }
 }
 

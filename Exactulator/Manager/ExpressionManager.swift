@@ -23,6 +23,8 @@ class ExpressionManager {
         case unknownOperator
         // An operator is supported but is used incorrectly
         case unsupportedOperatorPosition
+        // Invalid number of arguments
+        case invalidArguments
     }
 
     // Currently planned supported syntax:
@@ -31,9 +33,10 @@ class ExpressionManager {
     // Postfix: `a!`
     // Implicit multiplication: `ab`
     // Functions with one parameter: `sin(a)`
+    // Functions with multiple parameters: `log(a, b)`
     //
     // Not supported:
-    // Functions with multiple parameters: `log(a, b)`
+    // Functions with zero parameters
     func computeOperationTree(expression: String) throws(TreeBuildingError) -> any Operation {
         // convert the expression into tokens
         var tokens: [Token] = .build(from: expression)
@@ -69,9 +72,10 @@ class ExpressionManager {
             }
         }
 
-        // until there is only one working token left, we do the following:
-        // 1. Find any brackets and get operations from them
-        // 2. Find the highest-ranked operator, searcing in the order postfix -> prefix -> infix
+        // For each subexpression, we aim to break it up by
+        // 1) Splitting up subexpressions, if any
+        // 2) Splitting up brackets, if any
+        // 3) Evaluating operators
         func computeSubexpression(workingTokens: ArraySlice<WorkingToken>) throws(TreeBuildingError) -> any Operation {
             // scan for brackets, get them solved
             var bracketStartIndex: Int?
@@ -88,12 +92,22 @@ class ExpressionManager {
                     if height == 0 {
                         // We have exited a bracket, time to solve!
                         // note that we drop the first and last item, because those are brackets and will result in infinite loops.
-                        let subexpression = try computeSubexpression(workingTokens: workingTokens[(bracketStartIndex!+1)..<index])
+
+                        let subExpression = workingTokens[(bracketStartIndex!+1)..<index]
+                        let subExpressionParts = subExpression.split { possibleDelimiter in
+                            switch possibleDelimiter {
+                            case .token(let token): token.string == ","
+                            default: false
+                            }
+                        }
+                        let subOperations = try subExpressionParts.map { (subExpression) throws(TreeBuildingError) in
+                            try computeSubexpression(workingTokens: subExpression)
+                        }
                         replacements.append((
                             bracketStartIndex!..<(index+1),
                             FunctionOperation(
-                                op: SubexpressionOperator.shared,
-                                elements: [subexpression]
+                                op: subExpressionParts.count == 1 ? SubexpressionOperator.shared : ParametersOperator.shared,
+                                elements: subOperations
                             )
                         ))
                         bracketStartIndex = nil
@@ -116,14 +130,19 @@ class ExpressionManager {
                     guard case let .token(token) = workToken,
                           case let .operation(rhs) = workingTokensMut[index+1],
                           let funcOperation = rhs as? FunctionOperation, // must be subexpression
-                          funcOperation.op.name == SubexpressionOperator.shared.name
+                          funcOperation.op.name == SubexpressionOperator.shared.name ||
+                            funcOperation.op.name == ParametersOperator.shared.name
                     else { continue }
                     // determine what operator it matches
                     guard let op = registeredOps.match(functionToken: token) else { continue }
+                    // ensure the number of parameters is correct
+                    guard op.argumentCount.contains(funcOperation.elements.count) else {
+                        throw TreeBuildingError.invalidArguments
+                    }
                     // functions are of the highest priority anyway, just replace the first one found.
                     workingTokensMut.replaceSubrange(
                         index..<(index+2),
-                        with: [.operation(FunctionOperation(op: op, elements: [rhs]))]
+                        with: [.operation(FunctionOperation(op: op, elements: funcOperation.elements))]
                     )
 
                     // continue the main loop
