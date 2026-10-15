@@ -29,10 +29,10 @@ class ExpressionManager {
     // Infix: `a + b`
     // Prefix: `-a`
     // Postfix: `a!`
+    // Implicit multiplication: `ab`
     //
     // Not supported:
     // Functions: `sin(a)`
-    // Implicit multiplication: `ab`
     func computeOperationTree(expression: String) throws(TreeBuildingError) -> any Operation {
         // convert the expression into tokens
         var tokens: [Token] = .build(from: expression)
@@ -103,12 +103,12 @@ class ExpressionManager {
 
             // get a mutable copy and substitute
             var workingTokensMut = Array(workingTokens)
-            for (replacementRange, op) in replacements {
+            for (replacementRange, op) in replacements.reversed() { // replace from back to front to preserve index order
                 workingTokensMut.replaceSubrange(replacementRange, with: [.operation(op)])
             }
 
-            // Find the highest-ranked operator, searcing in the order postfix -> prefix -> infix. Then optimise.
-            while workingTokensMut.count > 1 {
+            // Find the highest-ranked operator, searcing in the order postfix -> implicit -> prefix -> infix. Then optimise.
+            mainloop: while workingTokensMut.count > 1 {
                 // search for highest ranked valid postfix operations
                 do {
                     var highestPostfix: any PostfixOperator?
@@ -133,6 +133,31 @@ class ExpressionManager {
                     if let (replacementRange, op) = replacement {
                         workingTokensMut.replaceSubrange(replacementRange, with: [.operation(op)])
                         continue
+                    }
+                }
+
+                // search for first valid implicit infix operation. Rank doesn't matter since there is only one
+                // implicit infix operation.
+                if let op = registeredOps.registeredImplicitInfixOp {
+                    for (index, workToken) in workingTokensMut.enumerated().dropLast() {
+                        // must be an operation, next work token must also be an operation
+                        guard case let .operation(lhs) = workToken,
+                              case let .operation(rhs) = workingTokensMut[index+1]
+                        else { continue }
+
+                        workingTokensMut.replaceSubrange(
+                            index..<(index+2), // [index, index+2) = [index, index+1]
+                            with: [.operation(
+                                InfixOperation(
+                                    op: op,
+                                    lhs: lhs,
+                                    rhs: rhs
+                                )
+                            )]
+                        )
+
+                        // continue the main loop
+                        continue mainloop
                     }
                 }
 
