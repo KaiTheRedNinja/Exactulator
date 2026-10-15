@@ -30,9 +30,10 @@ class ExpressionManager {
     // Prefix: `-a`
     // Postfix: `a!`
     // Implicit multiplication: `ab`
+    // Functions with one parameter: `sin(a)`
     //
     // Not supported:
-    // Functions: `sin(a)`
+    // Functions with multiple parameters: `log(a, b)`
     func computeOperationTree(expression: String) throws(TreeBuildingError) -> any Operation {
         // convert the expression into tokens
         var tokens: [Token] = .build(from: expression)
@@ -107,8 +108,28 @@ class ExpressionManager {
                 workingTokensMut.replaceSubrange(replacementRange, with: [.operation(op)])
             }
 
-            // Find the highest-ranked operator, searcing in the order postfix -> implicit -> prefix -> infix. Then optimise.
+            // Find the highest-ranked operator, searcing in the order function -> postfix -> implicit -> prefix -> infix. Then optimise.
             mainloop: while workingTokensMut.count > 1 {
+                // search for highest ranked valid function operations
+                for (index, workToken) in workingTokensMut.enumerated().dropLast() {
+                    // must be a token, and have a valid RHS that is a subexpression. LHS is irrelevant.
+                    guard case let .token(token) = workToken,
+                          case let .operation(rhs) = workingTokensMut[index+1],
+                          let funcOperation = rhs as? FunctionOperation, // must be subexpression
+                          funcOperation.op.name == SubexpressionOperator.shared.name
+                    else { continue }
+                    // determine what operator it matches
+                    guard let op = registeredOps.match(functionToken: token) else { continue }
+                    // functions are of the highest priority anyway, just replace the first one found.
+                    workingTokensMut.replaceSubrange(
+                        index..<(index+2),
+                        with: [.operation(FunctionOperation(op: op, elements: [rhs]))]
+                    )
+
+                    // continue the main loop
+                    continue mainloop
+                }
+
                 // search for highest ranked valid postfix operations
                 do {
                     var highestPostfix: any PostfixOperator?

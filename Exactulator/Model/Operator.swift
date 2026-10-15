@@ -131,7 +131,7 @@ struct MultiplicationOperator: InfixOperator, ImplicitInfixOperator {
         guard case .exact(var lhsExact) = lhs,
               case .exact(var rhsExact) = rhs
                 else {
-            return .imprecise(lhs.asImprecise + rhs.asImprecise)
+            return .imprecise(.init(value: lhs.asImprecise.value * rhs.asImprecise.value))
         }
 
         do {
