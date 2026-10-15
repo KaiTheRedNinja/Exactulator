@@ -159,6 +159,10 @@ struct Exact: Equatable {
         let gcd = gcd(numerator, denominator)
         numerator = numerator / gcd
         denominator = denominator / gcd
+        if denominator < 0 { // if denominator is negative, flip both. Denominator must be positive.
+            numerator *= -1
+            denominator *= -1
+        }
     }
 
     func normalised() throws(ExactError) -> Exact {
