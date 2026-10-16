@@ -66,7 +66,7 @@ class ExpressionManager {
         for token in tokens {
             switch token {
             case .numerical(let string):
-                startWorkingTokens.append(.operation(ValueOperation(value: .bestGuess(value: string))))
+                startWorkingTokens.append(.operation(ValueOperation(value: .init(value: .bestGuess(value: string), unit: .one))))
             default:
                 if let op = registeredOps.match(constantToken: token) {
                     startWorkingTokens.append(.operation(ConstantOperation(constant: op)))

@@ -8,10 +8,30 @@
 import Foundation
 
 struct Quantity {
-    let value: NumValue
-    let unit: Unit
+    var value: NumValue
+    var unit: Unit
 
-    func converted(to target: Unit) throws -> Quantity {
+    var description: String {
+        var desc: String = value.description
+        if unit != .one {
+            desc += " \(unit.symbol)"
+        }
+        return desc
+    }
+
+    /// Converts this quantity to a different unit
+    /// - Parameters:
+    ///   - target: The unit to convert to
+    ///   - forgiveNoDimension: If either the current unit or the target unit are `Unit.one`, the conversion is done anyway, assuming 1:1
+    /// - Returns: The quantity produced by the conversion
+    func converted(to target: Unit, forgiveNoDimension: Bool = true) throws -> Quantity {
+        // if units are the same, no change
+        guard target != unit else { return self }
+        // if forgive no dimension and either unit or target is `Unit.one`, allow the conversion
+        if forgiveNoDimension, unit == .one || target == .one {
+            return .init(value: value, unit: target)
+        }
+
         guard unit.dimensions == target.dimensions else {
             throw UnitSystemError.incompatibleDimensions(
                 from: unit,
@@ -19,16 +39,7 @@ struct Quantity {
             )
         }
 
-        return Quantity(
-            value: try MultiplicationOperator.shared.result(
-                lhs: value,
-                rhs: try DivisionOperator.shared.result(
-                    lhs: unit.scale,
-                    rhs: target.scale
-                )
-            ),
-            unit: target
-        )
+        return try .init(value: value.multiplying(unit.scale.dividing(target.scale)), unit: target)
     }
 }
 
@@ -114,6 +125,116 @@ enum NumValue: Equatable, ExpressibleByFloatLiteral {
         self = .bestGuess(value: String(value))
     }
     typealias FloatLiteralType = Double
+
+    func adding(_ rhs: NumValue) throws(OperatorError) -> NumValue {
+        // both must be exact
+        let fallback = NumValue.imprecise(self.asImprecise + rhs.asImprecise)
+        guard case .exact(var lhsExact) = self,
+              case .exact(var rhsExact) = rhs
+                else {
+            return fallback
+        }
+
+        do {
+            try lhsExact.normalise()
+            try rhsExact.normalise()
+        } catch {
+            throw OperatorError.exactError(error)
+        }
+
+        // both must have compatible powers of pi
+        guard lhsExact.piPower == rhsExact.piPower && lhsExact.surdBase == rhsExact.surdBase else {
+            return fallback
+        }
+
+        // cross-multiply to sum together
+        do {
+            let exactSum = try Exact(
+                numerator: (lhsExact.numerator * rhsExact.denominator) + (rhsExact.numerator * lhsExact.denominator),
+                denominator: lhsExact.denominator * rhsExact.denominator,
+                piPower: lhsExact.piPower,
+                surdBase: lhsExact.surdBase
+            )
+                .normalised()
+            return fallback
+        } catch {
+            throw OperatorError.exactError(error)
+        }
+    }
+
+    func subtracting(_ rhs: NumValue) throws(OperatorError) -> NumValue {
+        try adding(rhs.negated())
+    }
+
+    func negated() -> NumValue {
+        switch self {
+        case .exact(var exact):
+            exact.numerator *= -1
+            return .exact(exact)
+        case .imprecise(let imprecise):
+            return .imprecise(.init(value: imprecise.value * -1))
+        }
+    }
+
+    func multiplying(_ rhs: NumValue) throws(OperatorError) -> NumValue {
+        // both must be exact
+        guard case .exact(var lhsExact) = self,
+              case .exact(var rhsExact) = rhs
+                else {
+            return .imprecise(.init(value: self.asImprecise.value * rhs.asImprecise.value))
+        }
+
+        do {
+            try lhsExact.normalise()
+            try rhsExact.normalise()
+        } catch {
+            throw OperatorError.exactError(error)
+        }
+
+        // If either has zero as a numerator, we can just return 0 immediately
+        if lhsExact.numerator == 0 || rhsExact.numerator == 0 {
+            return .exact(.zero)
+        }
+
+        // multiply everything
+        do {
+            let exactProduct = try Exact(
+                numerator: lhsExact.numerator * rhsExact.numerator,
+                denominator: lhsExact.denominator * rhsExact.denominator,
+                piPower: lhsExact.piPower + rhsExact.piPower,
+                surdBase: lhsExact.surdBase * rhsExact.surdBase
+            )
+                .normalised()
+            return .exact(exactProduct)
+        } catch {
+            throw OperatorError.exactError(error)
+        }
+    }
+
+    /// `lhs / rhs`
+    func dividing(_ rhs: NumValue) throws(OperatorError) -> NumValue {
+        guard rhs.asImprecise.value != 0 else { throw OperatorError.mathError }
+        return try multiplying(rhs.reciprocal())
+    }
+
+    /// `1 / rhs`
+    ///
+    /// Note that `a/b * sqrt(c) = b/ac * sqrt(c)`
+    func reciprocal() -> NumValue {
+        switch self {
+        case .exact(let exact):
+            return .exact(
+                .init(
+                    numerator: exact.denominator,
+                    denominator: exact.numerator * exact.surdBase,
+                    piPower: exact.piPower * -1,
+                    surdBase: exact.surdBase
+                )
+            )
+        case .imprecise(let imprecise):
+            return .imprecise(.init(value: 1 / imprecise.value))
+        }
+    }
 }
 
 enum ExactError: Error {

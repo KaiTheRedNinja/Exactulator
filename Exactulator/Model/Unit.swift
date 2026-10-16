@@ -51,6 +51,12 @@ struct Unit: Equatable {
     let scale: NumValue
     let dimensions: Dimensions
 
+    static let one = Unit(
+        symbol: "1",
+        scale: 1.0,
+        dimensions: .dimensionless
+    )
+
     /// Scale is the multiplier converting this unit to SI base units.
     init(
         symbol: String,
@@ -68,7 +74,7 @@ struct Unit: Equatable {
     func multiplied(by other: Unit) -> Unit {
         Unit(
             symbol: "\(symbol)·\(other.symbol)",
-            scale: try! MultiplicationOperator.shared.result(lhs: scale, rhs: other.scale),
+            scale: try! scale.multiplying(other.scale),
             dimensions: dimensions * other.dimensions
         )
     }
@@ -76,7 +82,7 @@ struct Unit: Equatable {
     func divided(by other: Unit) -> Unit {
         Unit(
             symbol: "\(symbol)/\(other.symbol)",
-            scale: try! DivisionOperator.shared.result(lhs: scale, rhs: other.scale),
+            scale: try! scale.dividing(other.scale),
             dimensions: dimensions / other.dimensions
         )
     }
@@ -120,11 +126,7 @@ struct UnitSystem {
         register(Unit(symbol: "s", scale: 1.0, dimensions: .time))
 
         // Dimensionless unit.
-        register(Unit(
-            symbol: "1",
-            scale: 1.0,
-            dimensions: .dimensionless
-        ))
+        register(Unit.one)
 
         // Common scaled units.
         try! define(symbol: "km", from: "m", factor: 1_000.0)
@@ -168,7 +170,7 @@ struct UnitSystem {
         let base = try unit(baseSymbol)
         let derived = Unit(
             symbol: symbol,
-            scale: try MultiplicationOperator.shared.result(lhs: base.scale, rhs: factor),
+            scale: try base.scale.multiplying(factor),
             dimensions: base.dimensions
         )
         try define(symbol: symbol, as: derived)
@@ -203,12 +205,6 @@ struct UnitSystem {
             )
         }
 
-        return try MultiplicationOperator.shared.result(
-            lhs: value,
-            rhs: try DivisionOperator.shared.result(
-                lhs: source.scale,
-                rhs: target.scale
-            )
-        )
+        return try value.multiplying(source.scale.dividing(target.scale))
     }
 }

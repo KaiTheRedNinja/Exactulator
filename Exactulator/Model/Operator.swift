@@ -23,6 +23,8 @@ protocol Operator {
 enum OperatorError: Error {
     /// An error with Exact
     case exactError(ExactError)
+    /// A unit error
+    case unitError(UnitSystemError)
     /// Math error
     case mathError
     /// Syntax error
@@ -44,19 +46,19 @@ enum OperatorPriority: Int {
 /// An operator placed between two values, e.g. `1+1`
 protocol InfixOperator: Operator {
     /// Returns the result of this operation given the values to the left and right of the operator
-    func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue
+    func result(lhs: Quantity, rhs: Quantity) throws(OperatorError) -> Quantity
 }
 
 /// An operator placed before a value, e.g. `-1`
 protocol PrefixOperator: Operator {
     /// Returns the result of this operation given the value to the right of the operator
-    func result(rhs: NumValue) throws(OperatorError) -> NumValue
+    func result(rhs: Quantity) throws(OperatorError) -> Quantity
 }
 
 /// An operator placed after a value, e.g. `3!`
 protocol PostfixOperator: Operator {
     /// Returns the result of this operation given the value to the left of the operator
-    func result(lhs: NumValue) throws(OperatorError) -> NumValue
+    func result(lhs: Quantity) throws(OperatorError) -> Quantity
 }
 
 /// An operator that represents a function
@@ -64,7 +66,7 @@ protocol FunctionOperator: Operator {
     /// The number of arguments that this operator accepts
     var argumentCount: ClosedRange<Int> { get }
     /// Returns the result of this operation given the parameters passed to the operator.
-    func result(elements: [NumValue]) throws(OperatorError) -> NumValue
+    func result(elements: [Quantity]) throws(OperatorError) -> Quantity
 }
 
 /// An implicit infix operator. There may only be one of these. Behaviour is used when
@@ -75,7 +77,7 @@ protocol ImplicitInfixOperator: InfixOperator {
 /// An operator which just matches directly to a value
 protocol ConstantOperator: Operator {
     /// Returns the constant value
-    func result() throws(OperatorError) -> NumValue
+    func result() throws(OperatorError) -> Quantity
 }
 
 /// An operator that performs addition
@@ -86,39 +88,12 @@ struct AdditionOperator: InfixOperator {
 
     static let shared: AdditionOperator = .init()
 
-    func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue {
-        // both must be exact
-        guard case .exact(var lhsExact) = lhs,
-              case .exact(var rhsExact) = rhs
-                else {
-            return .imprecise(lhs.asImprecise + rhs.asImprecise)
+    func result(lhs: Quantity, rhs: Quantity) throws(OperatorError) -> Quantity {
+        // both must be the same unit, otherwise invalid.
+        guard let rhs = try? rhs.converted(to: lhs.unit) else {
+            throw OperatorError.unitError(.incompatibleDimensions(from: rhs.unit, to: lhs.unit))
         }
-
-        do {
-            try lhsExact.normalise()
-            try rhsExact.normalise()
-        } catch {
-            throw OperatorError.exactError(error)
-        }
-
-        // both must have compatible powers of pi
-        guard lhsExact.piPower == rhsExact.piPower && lhsExact.surdBase == rhsExact.surdBase else {
-            return .imprecise(lhs.asImprecise + rhs.asImprecise)
-        }
-
-        // cross-multiply to sum together
-        do {
-            let exactSum = try Exact(
-                numerator: (lhsExact.numerator * rhsExact.denominator) + (rhsExact.numerator * lhsExact.denominator),
-                denominator: lhsExact.denominator * rhsExact.denominator,
-                piPower: lhsExact.piPower,
-                surdBase: lhsExact.surdBase
-            )
-            .normalised()
-            return .exact(exactSum)
-        } catch {
-            throw OperatorError.exactError(error)
-        }
+        return try .init(value: lhs.value.adding(rhs.value), unit: lhs.unit)
     }
 }
 
@@ -130,18 +105,16 @@ struct SubtractionOperator: InfixOperator, PrefixOperator {
 
     static let shared: SubtractionOperator = .init()
 
-    func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue {
-        try AdditionOperator.shared.result(lhs: lhs, rhs: result(rhs: rhs))
+    func result(lhs: Quantity, rhs: Quantity) throws(OperatorError) -> Quantity {
+        // both must be the same unit, otherwise invalid.
+        guard let rhs = try? rhs.converted(to: lhs.unit) else {
+            throw OperatorError.unitError(.incompatibleDimensions(from: rhs.unit, to: lhs.unit))
+        }
+        return try .init(value: lhs.value.subtracting(rhs.value), unit: lhs.unit)
     }
 
-    func result(rhs: NumValue) -> NumValue {
-        switch rhs {
-        case .exact(var exact):
-            exact.numerator *= -1
-            return .exact(exact)
-        case .imprecise(let imprecise):
-            return .imprecise(.init(value: imprecise.value * -1))
-        }
+    func result(rhs: Quantity) throws(OperatorError) -> Quantity {
+        return .init(value: rhs.value.negated(), unit: rhs.unit)
     }
 }
 
@@ -153,39 +126,11 @@ struct MultiplicationOperator: InfixOperator, ImplicitInfixOperator {
 
     static let shared: MultiplicationOperator = .init()
 
-    func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue {
-        // both must be exact
-        guard case .exact(var lhsExact) = lhs,
-              case .exact(var rhsExact) = rhs
-                else {
-            return .imprecise(.init(value: lhs.asImprecise.value * rhs.asImprecise.value))
-        }
-
-        do {
-            try lhsExact.normalise()
-            try rhsExact.normalise()
-        } catch {
-            throw OperatorError.exactError(error)
-        }
-
-        // If either has zero as a numerator, we can just return 0 immediately
-        if lhsExact.numerator == 0 || rhsExact.numerator == 0 {
-            return .exact(.zero)
-        }
-
-        // multiply everything
-        do {
-            let exactProduct = try Exact(
-                numerator: lhsExact.numerator * rhsExact.numerator,
-                denominator: lhsExact.denominator * rhsExact.denominator,
-                piPower: lhsExact.piPower + rhsExact.piPower,
-                surdBase: lhsExact.surdBase * rhsExact.surdBase
-            )
-                .normalised()
-            return .exact(exactProduct)
-        } catch {
-            throw OperatorError.exactError(error)
-        }
+    func result(lhs: Quantity, rhs: Quantity) throws(OperatorError) -> Quantity {
+        return try .init(
+            value: lhs.value.multiplying(rhs.value),
+            unit: lhs.unit.multiplied(by: rhs.unit)
+        )
     }
 }
 
@@ -198,29 +143,12 @@ struct DivisionOperator: InfixOperator {
     static let shared: DivisionOperator = .init()
 
     /// `lhs / rhs`
-    func result(lhs: NumValue, rhs: NumValue) throws(OperatorError) -> NumValue {
-        guard rhs.asImprecise.value != 0 else { throw OperatorError.mathError }
-
-        return try MultiplicationOperator.shared.result(lhs: lhs, rhs: reciprocal(rhs: rhs))
-    }
-
-    /// `1 / rhs`
-    ///
-    /// Note that `a/b * sqrt(c) = b/ac * sqrt(c)`
-    func reciprocal(rhs: NumValue) -> NumValue {
-        switch rhs {
-        case .exact(let exact):
-            return .exact(
-                .init(
-                    numerator: exact.denominator,
-                    denominator: exact.numerator * exact.surdBase,
-                    piPower: exact.piPower * -1,
-                    surdBase: exact.surdBase
-                )
-            )
-        case .imprecise(let imprecise):
-            return .imprecise(.init(value: 1 / imprecise.value))
-        }
+    func result(lhs: Quantity, rhs: Quantity) throws(OperatorError) -> Quantity {
+        guard rhs.value.asImprecise.value != 0 else { throw OperatorError.mathError }
+        return try .init(
+            value: lhs.value.dividing(rhs.value),
+            unit: lhs.unit.divided(by: rhs.unit)
+        )
     }
 }
 
@@ -233,7 +161,7 @@ struct SubexpressionOperator: FunctionOperator {
 
     static let shared: SubexpressionOperator = .init()
 
-    func result(elements: [NumValue]) throws(OperatorError) -> NumValue {
+    func result(elements: [Quantity]) throws(OperatorError) -> Quantity {
         return elements.first!
     }
 }
@@ -247,7 +175,7 @@ struct ParametersOperator: FunctionOperator {
 
     static let shared: ParametersOperator = .init()
 
-    func result(elements: [NumValue]) throws(OperatorError) -> NumValue {
+    func result(elements: [Quantity]) throws(OperatorError) -> Quantity {
         throw OperatorError.syntaxError
     }
 }
@@ -261,19 +189,19 @@ struct LogOperator: FunctionOperator {
 
     static let shared: LogOperator = .init()
 
-    func result(elements: [NumValue]) throws(OperatorError) -> NumValue {
+    func result(elements: [Quantity]) throws(OperatorError) -> Quantity {
         let conversion: Double
         if elements.count == 1 {
             conversion = 1
         } else {
-            let last = elements.last!.asImprecise.value
+            let last = elements.last!.value.asImprecise.value
             guard last > 0 else { throw OperatorError.mathError }
             conversion = log(last)
         }
 
-        let first = elements.first!.asImprecise.value
+        let first = elements.first!.value.asImprecise.value
         guard first > 0 else { throw OperatorError.mathError }
-        return .imprecise(.init(value: log(first) / conversion))
+        return .init(value: .imprecise(.init(value: log(first) / conversion)), unit: .one)
     }
 }
 
@@ -352,13 +280,15 @@ struct SinOperator: FunctionOperator {
         }?.value
     }
 
-    func result(elements: [NumValue]) -> NumValue {
+    // note that both input and output to a sinusoidal function are unitless
+    // so no unit conversion needed, just use as-is
+    func result(elements: [Quantity]) -> Quantity {
         let input = elements.first!
-        if case let .exact(angle) = input, let exactResult = specialSine(for: angle) {
-            return .exact(exactResult)
+        if case let .exact(angle) = input.value, let exactResult = specialSine(for: angle) {
+            return .init(value: .exact(exactResult), unit: .one)
         }
 
-        return .imprecise(.init(value: sin(input.asImprecise.value)))
+        return .init(value: .imprecise(.init(value: sin(input.value.asImprecise.value))), unit: .one)
     }
 }
 
@@ -371,9 +301,9 @@ struct CosOperator: FunctionOperator {
 
     static let shared: CosOperator = .init()
 
-    func result(elements: [NumValue]) -> NumValue {
+    func result(elements: [Quantity]) -> Quantity {
         let input = elements.first!
-        if case let .exact(angle) = input, angle.piPower == 1, angle.surdBase == 1 {
+        if case let .exact(angle) = input.value, angle.piPower == 1, angle.surdBase == 1 {
             // pi/2 - (n/d)pi = ((d - 2n) / 2d)pi.
             let complementaryAngle = Exact(
                 angle.denominator - 2 * angle.numerator,
@@ -381,10 +311,10 @@ struct CosOperator: FunctionOperator {
                 pi: 1
             )
 
-            return SinOperator.shared.result(elements: [.exact(complementaryAngle)])
+            return SinOperator.shared.result(elements: [.init(value: .exact(complementaryAngle), unit: .one)])
         }
 
-        return .imprecise(.init(value: cos(input.asImprecise.value)))
+        return .init(value: .imprecise(.init(value: cos(input.value.asImprecise.value))), unit: .one)
     }
 }
 
@@ -397,34 +327,34 @@ struct TanOperator: FunctionOperator {
 
     static let shared: TanOperator = .init()
 
-    func result(elements: [NumValue]) -> NumValue {
+    func result(elements: [Quantity]) -> Quantity {
         let input = elements.first!
-        if case let .exact(angle) = input {
-            let sine = SinOperator.shared.result(elements: [.exact(angle)])
-            let cosine = CosOperator.shared.result(elements: [.exact(angle)])
+        if case let .exact(angle) = input.value {
+            let sine = SinOperator.shared.result(elements: [.init(value: .exact(angle), unit: .one)])
+            let cosine = CosOperator.shared.result(elements: [.init(value: .exact(angle), unit: .one)])
 
             // Tangent is undefined wherever cosine is zero.
-            if case .exact(let c) = cosine, c.numerator == 0 {
+            if case .exact(let c) = cosine.value, c.numerator == 0 {
                 fatalError("Undefined, cosine is zero")
             }
 
-            switch (sine, cosine) {
+            switch (sine.value, cosine.value) {
             case (.exact(let s), .exact(let c)):
                 // (sn/sd * sqrt(sb)) / (cn/cd * sqrt(cb))
                 // = (sn*cd)/(sd*cn*cb) * sqrt(sb*cb)
                 // we do this directly instead of using division to reduce unnescessary normalisations
-                return .exact(
+                return .init(value: .exact(
                     Exact(
                         s.numerator * c.denominator,
                         div: s.denominator * c.numerator * c.surdBase,
                         surd: s.surdBase * c.surdBase
                     )
-                )
+                ), unit: .one)
             default: break
             }
         }
 
-        return .imprecise(.init(value: tan(input.asImprecise.value)))
+        return .init(value: .imprecise(.init(value: tan(input.value.asImprecise.value))), unit: .one)
     }
 }
 
@@ -437,14 +367,15 @@ struct SquareRootOperator: FunctionOperator {
 
     static let shared: SquareRootOperator = .init()
 
-    func result(elements: [NumValue]) -> NumValue {
+    // TODO: get fractional units working
+    func result(elements: [Quantity]) -> Quantity {
         let input = elements.first!
         // must not be in terms of pi, must not already have a sqrt, must be whole
-        if case let .exact(exact) = input, exact.denominator == 1, exact.piPower == 0, exact.surdBase == 1 {
-            return .exact(.init(1, surd: exact.numerator))
+        if case let .exact(exact) = input.value, exact.denominator == 1, exact.piPower == 0, exact.surdBase == 1 {
+            return .init(value: .exact(.init(1, surd: exact.numerator)), unit: .one)
         }
 
-        return .imprecise(.init(value: sqrt(input.asImprecise.value)))
+        return .init(value: .imprecise(.init(value: sqrt(input.value.asImprecise.value))), unit: .one)
     }
 }
 
@@ -456,7 +387,7 @@ struct PiOperator: ConstantOperator {
 
     static let shared: PiOperator = .init()
 
-    func result() -> NumValue {
-        .exact(.init(1, pi: 1))
+    func result() -> Quantity {
+        .init(value: .exact(.init(1, pi: 1)), unit: .one)
     }
 }

@@ -10,18 +10,18 @@ import Foundation
 /// An operation is a mathematical primative that can be evaluated to produce a value
 protocol Operation {
     var description: String { get }
-    func solve() throws(OperatorError) -> NumValue
+    func solve() throws(OperatorError) -> Quantity
 }
 
 /// An operation which simply returns a stored value
 struct ValueOperation: Operation {
-    var value: NumValue
+    var value: Quantity
 
     var description: String {
         value.description
     }
 
-    func solve() throws(OperatorError) -> NumValue {
+    func solve() throws(OperatorError) -> Quantity {
         value
     }
 }
@@ -34,7 +34,7 @@ struct ConstantOperation: Operation {
         constant.name
     }
 
-    func solve() throws(OperatorError) -> NumValue {
+    func solve() throws(OperatorError) -> Quantity {
         try constant.result()
     }
 }
@@ -55,7 +55,7 @@ struct InfixOperation: Operation {
         """
     }
 
-    func solve() throws(OperatorError) -> NumValue {
+    func solve() throws(OperatorError) -> Quantity {
         try op.result(lhs: lhs.solve(), rhs: rhs.solve())
     }
 }
@@ -74,7 +74,7 @@ struct PrefixOperation: Operation {
         """
     }
 
-    func solve() throws(OperatorError) -> NumValue {
+    func solve() throws(OperatorError) -> Quantity {
         try op.result(rhs: rhs.solve())
     }
 }
@@ -93,7 +93,7 @@ struct PostfixOperation: Operation {
         """
     }
 
-    func solve() throws(OperatorError) -> NumValue {
+    func solve() throws(OperatorError) -> Quantity {
         try op.result(lhs: lhs.solve())
     }
 }
@@ -120,7 +120,7 @@ struct FunctionOperation: Operation {
         """
     }
 
-    func solve() throws(OperatorError) -> NumValue {
+    func solve() throws(OperatorError) -> Quantity {
         guard op.argumentCount.contains(elements.count) else { fatalError("Wrong number of elements") }
         let elementsSolved = try elements.map { (elem) throws(OperatorError) in try elem.solve() }
         return try op.result(elements: elementsSolved)
