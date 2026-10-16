@@ -7,7 +7,33 @@
 
 import Foundation
 
-enum NumValue {
+struct Quantity {
+    let value: NumValue
+    let unit: Unit
+
+    func converted(to target: Unit) throws -> Quantity {
+        guard unit.dimensions == target.dimensions else {
+            throw UnitSystemError.incompatibleDimensions(
+                from: unit,
+                to: target
+            )
+        }
+
+        return Quantity(
+            value: try MultiplicationOperator.shared.result(
+                lhs: value,
+                rhs: try DivisionOperator.shared.result(
+                    lhs: unit.scale,
+                    rhs: target.scale
+                )
+            ),
+            unit: target
+        )
+    }
+}
+
+
+enum NumValue: Equatable, ExpressibleByFloatLiteral {
     case exact(Exact)
     case imprecise(Imprecise)
 
@@ -83,6 +109,11 @@ enum NumValue {
 
         return .exact(.init(numerator, div: denominator))
     }
+
+    init(floatLiteral value: Double) {
+        self = .bestGuess(value: String(value))
+    }
+    typealias FloatLiteralType = Double
 }
 
 enum ExactError: Error {
@@ -179,8 +210,12 @@ struct Exact: Equatable {
     )
 }
 
-struct Imprecise: Equatable, AdditiveArithmetic {
+struct Imprecise: Equatable, ExpressibleByFloatLiteral, AdditiveArithmetic {
     var value: Double
+
+    init(value: Double) {
+        self.value = value
+    }
 
     static let zero: Imprecise = .zero
 
@@ -190,6 +225,11 @@ struct Imprecise: Equatable, AdditiveArithmetic {
 
     static func - (lhs: Imprecise, rhs: Imprecise) -> Imprecise {
         .init(value: lhs.value - rhs.value)
+    }
+
+    typealias FloatLiteralType = Double
+    init(floatLiteral value: Double) {
+        self.value = value
     }
 }
 
