@@ -15,8 +15,6 @@ protocol Operator {
     var matchTokens: Set<Token> { get }
     /// The operator's calculation priority
     var priority: OperatorPriority { get }
-    /// A shared instance of this operator
-    static var shared: Self { get }
 }
 
 /// An error in executing an operation
@@ -379,15 +377,41 @@ struct SquareRootOperator: FunctionOperator {
     }
 }
 
-/// The constant Pi
-struct PiOperator: ConstantOperator {
-    var name: String { "pi" }
-    var matchTokens: Set<Token> { ["pi", "π"] }
-    var priority: OperatorPriority { .bracket }
+/// A constant value operator
+struct ConstValueOperator: ConstantOperator {
+    var name: String
+    var value: NumValue
+    var matchTokens: Set<Token>
+    var priority: OperatorPriority { fatalError("Constant value has no priority") }
 
-    static let shared: PiOperator = .init()
+    static let pi: ConstValueOperator = .init(
+        name: "pi",
+        value: .exact(.init(1, pi: 1)),
+        matchTokens: ["pi", "π"]
+    )
 
     func result() -> Quantity {
-        .init(value: .exact(.init(1, pi: 1)), unit: .one)
+        .init(value: value, unit: .one)
+    }
+}
+
+/// An operator which is a unit.
+///
+/// Because of a quirk of the system, we can actually calculate treat units as values, because a value like `1m` is
+/// interpreted as `1 * m`, which would result in `1` of unit `m`.
+struct UnitOperator: ConstantOperator {
+    var name: String
+    var unit: Unit
+    var matchTokens: Set<Token>
+    var priority: OperatorPriority { fatalError("Unit has no priority") }
+
+    init(unit: Unit, matchTokens: Set<Token>) {
+        self.name = unit.symbol
+        self.unit = unit
+        self.matchTokens = matchTokens
+    }
+
+    func result() -> Quantity {
+        .init(value: .exact(.init(1)), unit: unit)
     }
 }

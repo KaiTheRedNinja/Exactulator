@@ -13,19 +13,30 @@ struct ContentView: View {
                 .autocorrectionDisabled()
             Button("Calculate") {
                 do {
-                    let manager = ExpressionManager(registeredOps: .init(all: [
-                        AdditionOperator.shared,
-                        SubtractionOperator.shared,
-                        MultiplicationOperator.shared,
-                        DivisionOperator.shared,
-                        SubexpressionOperator.shared,
-                        LogOperator.shared,
-                        SinOperator.shared,
-                        CosOperator.shared,
-                        TanOperator.shared,
-                        SquareRootOperator.shared,
-                        PiOperator.shared
-                    ]))
+                    let unitsSystem = UnitSystem()
+                    let manager = ExpressionManager(
+                        registeredOps: .init(
+                            all: [
+                                AdditionOperator.shared,
+                                SubtractionOperator.shared,
+                                MultiplicationOperator.shared,
+                                DivisionOperator.shared,
+                                SubexpressionOperator.shared,
+                                LogOperator.shared,
+                                SinOperator.shared,
+                                CosOperator.shared,
+                                TanOperator.shared,
+                                SquareRootOperator.shared,
+                                ConstValueOperator.pi
+                            ] + unitsSystem.units.values.map {
+                                UnitOperator(
+                                    unit: $0,
+                                    matchTokens: [.letter($0.symbol)]
+                                )
+                            }
+                        ),
+                        registeredUnits: unitsSystem
+                    )
 
                     let tree = try manager.computeOperationTree(expression: expression)
                     print(tree.description)

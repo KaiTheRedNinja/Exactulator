@@ -7,13 +7,13 @@
 
 import Playgrounds
 
-
-
 class ExpressionManager {
     var registeredOps: OperationHolder
+    var registeredUnits: UnitSystem
 
-    init(registeredOps: OperationHolder) {
+    init(registeredOps: OperationHolder, registeredUnits: UnitSystem) {
         self.registeredOps = registeredOps
+        self.registeredUnits = registeredUnits
     }
 
     enum TreeBuildingError: Error {
