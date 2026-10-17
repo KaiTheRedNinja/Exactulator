@@ -125,6 +125,12 @@ struct ConstValueOperator: ConstantOperator {
         matchTokens: ["pi", "π"]
     )
 
+    static let euler: ConstValueOperator = .init(
+        name: "e",
+        value: .imprecise(.init(value: 2.7182818)),
+        matchTokens: ["e", "ℇ"]
+    )
+
     func result() -> Quantity {
         .init(value: value, unit: .one)
     }
@@ -154,7 +160,7 @@ struct UnitOperator: ConstantOperator {
 /// An operator which converts a value on the left to the unit on the right
 struct UnitConvertOperator: InfixOperator {
     var name: String { "as" }
-    var matchTokens: Set<Token> { ["as"] }
+    var matchTokens: Set<Token> { ["as", "→"] }
     var priority: OperatorPriority { .multiplication }
 
     static let shared: UnitConvertOperator = .init()

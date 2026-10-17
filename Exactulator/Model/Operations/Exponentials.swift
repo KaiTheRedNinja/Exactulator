@@ -10,7 +10,7 @@ import Foundation
 /// An operator that performs the natural log function. Optionally takes a second parameter for the base.
 struct LogOperator: FunctionOperator {
     var name: String { "log" }
-    var matchTokens: Set<Token> { ["log"] }
+    var matchTokens: Set<Token> { ["log", "ln"] }
     var priority: OperatorPriority { .bracket }
     var argumentCount: ClosedRange<Int> { 1...2 }
 

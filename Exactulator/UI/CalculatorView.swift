@@ -10,13 +10,6 @@ import SwiftUI
 struct CalculatorView: View {
     @StateObject var manager: CalculatorManager
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 9),
-        GridItem(.flexible(), spacing: 9),
-        GridItem(.flexible(), spacing: 9),
-        GridItem(.flexible(), spacing: 9)
-    ]
-
     var body: some View {
         VStack(spacing: 0) {
 //            header
@@ -124,56 +117,77 @@ struct CalculatorView: View {
     private var keypad: some View {
         VStack(spacing: 9) {
             HStack(spacing: 9) {
-                utilityButton("Clear", symbol: "xmark.circle", tint: .red) {
+                utilityButton("AC", symbol: "xmark.circle", tint: .red) {
                     manager.clear()
                 }
-                utilityButton("Delete", symbol: "delete.left", tint: .orange) {
-                    manager.deleteBackward()
-                }
-                utilityButton("←", symbol: nil, tint: .indigo) {
+                utilityButton(nil, symbol: "chevron.left", tint: .indigo) {
                     manager.moveLeft()
                 }
-                utilityButton("→", symbol: nil, tint: .indigo) {
+                utilityButton(nil, symbol: "chevron.right", tint: .indigo) {
                     manager.moveRight()
+                }
+
+                utilityButton("DEL", symbol: "delete.left", tint: .orange) {
+                    manager.deleteBackward()
                 }
             }
 
-            LazyVGrid(columns: columns, spacing: 9) {
-                key("sin") { manager.insertAtom("sin(") }
-                key("cos") { manager.insertAtom("cos(") }
-                key("tan") { manager.insertAtom("tan(") }
-                key("ln") { manager.insertAtom("ln(") }
+            VStack(spacing: 9) {
+                HStack(spacing: 9) {
+                    key("π", style: .function) { manager.insertAtom("π") }
+                    key("sin", style: .function) { manager.insertAtom("sin(") }
+                    key("cos", style: .function) { manager.insertAtom("cos(") }
+                    key("tan", style: .function) { manager.insertAtom("tan(") }
+                    key("ln", style: .function) { manager.insertAtom("ln(") }
+                    key("ℇ", style: .function) { manager.insertAtom("ℇ") }
+                }
 
-                key("7", style: .number) { manager.insertAtom("7") }
-                key("8", style: .number) { manager.insertAtom("8") }
-                key("9", style: .number) { manager.insertAtom("9") }
-                key("÷", style: .operatorKey) { manager.insertAtom("÷") }
+                HStack(spacing: 9) {
+                    key("a/b", style: .function) { manager.insertFraction() }
+                    key("√x", style: .function) { manager.insertSquareRoot() }
+                    key("(", style: .function) { manager.insertAtom("(") }
+                    key(")", style: .function) { manager.insertAtom("(") }
+                    key("x²", style: .function) { manager.insertSquared() }
+                    key("x⁻¹", style: .function) { manager.insertInverse() }
+                }
 
-                key("4", style: .number) { manager.insertAtom("4") }
-                key("5", style: .number) { manager.insertAtom("5") }
-                key("6", style: .number) { manager.insertAtom("6") }
-                key("×", style: .operatorKey) { manager.insertAtom("×") }
+                HStack(spacing: 9) {
+                    key("m", style: .operatorKey) { manager.insertAtom("m") }
+                    key("7", style: .number) { manager.insertAtom("7") }
+                    key("8", style: .number) { manager.insertAtom("8") }
+                    key("9", style: .number) { manager.insertAtom("9") }
+                    key("÷", style: .operatorKey) { manager.insertAtom("÷") }
+                }
 
-                key("1", style: .number) { manager.insertAtom("1") }
-                key("2", style: .number) { manager.insertAtom("2") }
-                key("3", style: .number) { manager.insertAtom("3") }
-                key("−", style: .operatorKey) { manager.insertAtom("−") }
+                HStack(spacing: 9) {
+                    key("kg", style: .operatorKey) { manager.insertAtom("kg") }
+                    key("4", style: .number) { manager.insertAtom("4") }
+                    key("5", style: .number) { manager.insertAtom("5") }
+                    key("6", style: .number) { manager.insertAtom("6") }
+                    key("×", style: .operatorKey) { manager.insertAtom("×") }
+                }
 
-                key("0", style: .number) { manager.insertAtom("0") }
-                key(".", style: .number) { manager.insertAtom(".") }
-                key("(", style: .number) { manager.insertAtom("(") }
-                key("+", style: .operatorKey) { manager.insertAtom("+") }
+                HStack(spacing: 9) {
+                    key("s", style: .operatorKey) { manager.insertAtom("s") }
+                    key("1", style: .number) { manager.insertAtom("1") }
+                    key("2", style: .number) { manager.insertAtom("2") }
+                    key("3", style: .number) { manager.insertAtom("3") }
+                    key("−", style: .operatorKey) { manager.insertAtom("−") }
+                }
 
-                key("a⁄b", style: .structure) { manager.insertFraction() }
-                key("√x", style: .structure) { manager.insertSquareRoot() }
-                key("x²", style: .structure) { manager.insertSquared() }
-                key("10ˣ", style: .structure) { manager.insertTenToPower() }
+                HStack(spacing: 9) {
+                    key("as", style: .operatorKey) { manager.insertAtom("→") }
+                    key("0", style: .number) { manager.insertAtom("0") }
+                    key(".", style: .number) { manager.insertAtom(".") }
+                    key("10ˣ", style: .number) { manager.insertTenToPower() }
+                    key("+", style: .operatorKey) { manager.insertAtom("+") }
+                }
             }
         }
     }
 
     private enum KeyStyle {
-        case number, operatorKey, structure
+        case number, function, operatorKey, structure
     }
 
     private func key(_ title: String, style: KeyStyle = .number, action: @escaping () -> Void) -> some View {
@@ -181,8 +195,8 @@ struct CalculatorView: View {
             Text(title)
                 .font(.system(size: 19, weight: .medium, design: .rounded))
                 .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(keyBackground(style), in: RoundedRectangle(cornerRadius: 14))
+                .frame(height: keyHeight(style))
+                .background(keyBackground(style), in: RoundedRectangle(cornerRadius: 12))
                 .foregroundStyle(keyForeground(style))
         }
         .buttonStyle(.plain)
@@ -190,7 +204,8 @@ struct CalculatorView: View {
 
     private func keyBackground(_ style: KeyStyle) -> Color {
         switch style {
-        case .number: return Color(uiColor: .secondarySystemBackground)
+        case .number: return Color(uiColor: .systemFill)
+        case .function: return Color(uiColor: .secondarySystemBackground)
         case .operatorKey: return Color.indigo.opacity(0.10)
         case .structure: return Color.teal.opacity(0.12)
         }
@@ -199,13 +214,23 @@ struct CalculatorView: View {
     private func keyForeground(_ style: KeyStyle) -> Color {
         switch style {
         case .number: return .primary
+        case .function: return .primary
         case .operatorKey: return .indigo
         case .structure: return .teal
         }
     }
 
+    private func keyHeight(_ style: KeyStyle) -> CGFloat {
+        switch style {
+        case .number: 48
+        case .function: 36
+        case .operatorKey: 48
+        case .structure: 48
+        }
+    }
+
     private func utilityButton(
-        _ title: String,
+        _ title: String?,
         symbol: String?,
         tint: Color,
         action: @escaping () -> Void
@@ -215,7 +240,9 @@ struct CalculatorView: View {
                 if let symbol {
                     Image(systemName: symbol)
                 }
-                Text(title)
+                if let title {
+                    Text(title)
+                }
             }
             .font(.subheadline.weight(.semibold))
             .frame(maxWidth: .infinity)

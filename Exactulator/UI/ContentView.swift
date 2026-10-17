@@ -21,6 +21,7 @@ struct ContentView: View {
                     SquareRootOperator.shared,
                     PowerOperator.shared,
                     ConstValueOperator.pi,
+                    ConstValueOperator.euler
                 ] + unitsSystem.units.values.map {
                     UnitOperator(
                         unit: $0,

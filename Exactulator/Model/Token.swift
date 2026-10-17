@@ -76,7 +76,11 @@ enum Token: ExpressibleByStringLiteral, Hashable {
 private extension Token {
     var singleChar: Bool {
         switch self {
-        case .numerical, .letter: false
+        case .numerical: false
+        case .letter:
+            // if it is ASCII, it is NOT single character
+            // greek letters are ASCII, and therefore ARE single characters.
+            !string.contains(where: { $0.isASCII })
         case .other, .openBracket, .closeBracket: true
         }
     }

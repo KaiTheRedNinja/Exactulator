@@ -75,6 +75,10 @@ final class CalculatorManager: ObservableObject {
         insertPower(exponent: [.atom("2")])
     }
 
+    func insertInverse() {
+        insertPower(exponent: [.atom("-1")])
+    }
+
     func deleteBackward() {
         guard var row = row(at: cursor.path) else { return }
         guard cursor.index > 0, cursor.index <= row.count else { return }
