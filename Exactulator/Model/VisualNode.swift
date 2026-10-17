@@ -26,6 +26,13 @@ enum ResultDisplayMode {
     case exact
     // Imprecise, which displays up to 10 significant figures
     case imprecise
+
+    var label: String {
+        switch self {
+        case .exact: return "Exact"
+        case .imprecise: return "Decimal"
+        }
+    }
 }
 
 extension [VisualNode] {
@@ -44,7 +51,7 @@ extension Quantity {
         var nodes: [VisualNode] = []
         if case let .exact(exactValue) = self.value, displayMode == .exact {
             // main value
-            if exactValue.denominator == 0 {
+            if exactValue.denominator == 1 {
                 // no denominator, just add the numerator
                 let stringValue = String(exactValue.numerator)
                 nodes.append(contentsOf: [VisualNode].from(string: stringValue))

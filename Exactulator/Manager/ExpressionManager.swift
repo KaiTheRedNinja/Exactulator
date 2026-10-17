@@ -25,6 +25,8 @@ class ExpressionManager {
         case unsupportedOperatorPosition
         // Invalid number of arguments
         case invalidArguments
+        // Infinite loop
+        case hang
     }
 
     enum WorkingToken {
@@ -40,6 +42,7 @@ class ExpressionManager {
             var currentString: String = ""
 
             func pushCurrent() {
+                // this is safe to do even with an empty string, as `build` will just return []
                 result.append(contentsOf: [Token].build(fromString: currentString).map { .token($0) })
                 currentString = ""
             }
@@ -50,6 +53,7 @@ class ExpressionManager {
                 case .atom(let str):
                     currentString += str
                 case .structure(let structure):
+                    pushCurrent()
                     result.append(
                         .nested(structure.associatedOperator, structure.slots.map {
                             visualNodesToWorkingTokens(visualNodes: $0)
@@ -58,9 +62,12 @@ class ExpressionManager {
                 }
             }
 
+            pushCurrent()
+
             return result
         }
 
+        // convert values and balance brackets
         var tokens = visualNodesToWorkingTokens(visualNodes: nodes)
 
         try balanceWorkingTokenBrackets(tokens: &tokens)
@@ -72,31 +79,30 @@ class ExpressionManager {
 
     func computeOperationTree(expression: String) throws(TreeBuildingError) -> any Operation {
         // convert the expression into tokens
-        let tokens: [Token] = .build(fromString: expression)
+        var tokens: [WorkingToken] = [Token].build(fromString: expression).map { .token($0) }
 
-        // map all tokens into working tokens. We first convert values and constants into operations
-        var startWorkingTokens: [WorkingToken] = []
-        for token in tokens {
-            switch token {
-            case .numerical(let string):
-                startWorkingTokens.append(.operation(ValueOperation(value: .init(value: .bestGuess(value: string), unit: .one))))
-            default:
-                if let op = registeredOps.match(constantToken: token) {
-                    startWorkingTokens.append(.operation(ConstantOperation(constant: op)))
-                } else {
-                    startWorkingTokens.append(.token(token))
-                }
-            }
-        }
-
-        try balanceWorkingTokenBrackets(tokens: &startWorkingTokens)
+        // convert values and balance brackets
+        try balanceWorkingTokenBrackets(tokens: &tokens)
 
         return try computeSubexpression(
-            workingTokens: startWorkingTokens[startWorkingTokens.startIndex..<startWorkingTokens.endIndex]
+            workingTokens: tokens[tokens.startIndex..<tokens.endIndex]
         )
     }
 
     func balanceWorkingTokenBrackets(tokens: inout [WorkingToken]) throws(TreeBuildingError) {
+        // convert values and constants into tokens
+        for (index, workToken) in tokens.enumerated() {
+            guard case let .token(token) = workToken else { continue }
+            switch token {
+            case .numerical(let string):
+                tokens[index] = .operation(ValueOperation(value: .init(value: .bestGuess(value: string), unit: .one)))
+            default:
+                if let op = registeredOps.match(constantToken: token) {
+                    tokens[index] = .operation(ConstantOperation(constant: op))
+                }
+            }
+        }
+
         // Check for matching bracket pairs. There cannot be more close brackets than open brackets
         var height: Int = 0
         for token in tokens {
@@ -190,7 +196,14 @@ class ExpressionManager {
         }
 
         // Find the highest-ranked operator, searcing in the order function -> postfix -> implicit -> prefix -> infix. Then optimise.
+        var lastCount = workingTokensMut.count + 1
         mainloop: while workingTokensMut.count > 1 {
+            // if last count = current count, no work was done and we might be hung
+            if lastCount == workingTokensMut.count {
+                throw TreeBuildingError.hang
+            }
+            lastCount = workingTokensMut.count
+
             // search for highest ranked valid function operations
             for (index, workToken) in workingTokensMut.enumerated().dropLast() {
                 // must be a token, and have a valid RHS that is a subexpression. LHS is irrelevant.

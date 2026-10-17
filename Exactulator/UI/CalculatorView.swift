@@ -1,0 +1,383 @@
+//
+//  CalculatorView.swift
+//  Exactulator
+//
+//  Created by Kai Quan Tay on 17/10/26.
+//
+
+import SwiftUI
+
+struct CalculatorView: View {
+    @StateObject var manager: CalculatorManager
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 9),
+        GridItem(.flexible(), spacing: 9),
+        GridItem(.flexible(), spacing: 9),
+        GridItem(.flexible(), spacing: 9)
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+//            header
+
+            ScrollView([.horizontal, .vertical]) {
+                VStack(alignment: .trailing, spacing: 18) {
+                    ExpressionRow(
+                        nodes: manager.expression,
+                        path: [],
+                        cursor: manager.cursor,
+                        onSetCursor: manager.setCursor
+                    )
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .trailing)
+
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.08))
+                        .frame(height: 1)
+
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Text(manager.warning == nil ? "RESULT" : "WARNING")
+                            .font(.caption2.weight(.bold))
+                            .tracking(1.4)
+                            .foregroundStyle(manager.warning == nil ? Color.secondary : .orange)
+
+                        if let warning = manager.warning {
+                            Text(warning)
+                                .font(.callout)
+                                .foregroundStyle(.orange)
+                                .multilineTextAlignment(.trailing)
+                        } else {
+                            ExpressionRow(
+                                nodes: manager.solution,
+                                path: [],
+                                cursor: Cursor(path: [], index: -1),
+                                onSetCursor: { _, _ in }
+                            )
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .padding(20)
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 210, alignment: .topTrailing)
+            }
+            .frame(maxHeight: .infinity)
+            .background(Color(uiColor: .secondarySystemBackground))
+
+            keypad
+                .padding(.horizontal, 12)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+                .background(Color(uiColor: .systemBackground))
+        }
+        .background(Color(uiColor: .systemBackground))
+        .preferredColorScheme(.light)
+    }
+
+//    private var header: some View {
+//        HStack {
+//            VStack(alignment: .leading, spacing: 3) {
+//                Text("FORMULA")
+//                    .font(.caption2.weight(.bold))
+//                    .tracking(1.8)
+//                    .foregroundStyle(.secondary)
+//                Text("Calculator")
+//                    .font(.title2.weight(.semibold))
+//            }
+//            Spacer()
+//            Button {
+//                manager.toggleDisplayMode()
+//            } label: {
+//                HStack(spacing: 6) {
+//                    Image(systemName: "arrow.left.arrow.right")
+//                    Text(manager.displayMode.label)
+//                }
+//                .font(.subheadline.weight(.semibold))
+//                .padding(.horizontal, 12)
+//                .padding(.vertical, 9)
+//                .background(Color.indigo.opacity(0.10), in: Capsule())
+//                .foregroundStyle(.indigo)
+//            }
+//            .buttonStyle(.plain)
+//        }
+//        .padding(.horizontal, 20)
+//        .padding(.vertical, 15)
+//    }
+
+    private var keypad: some View {
+        VStack(spacing: 9) {
+            HStack(spacing: 9) {
+                utilityButton("Clear", symbol: "xmark.circle", tint: .red) {
+                    manager.clear()
+                }
+                utilityButton("Delete", symbol: "delete.left", tint: .orange) {
+                    manager.deleteBackward()
+                }
+                utilityButton("←", symbol: nil, tint: .indigo) {
+                    manager.moveLeft()
+                }
+                utilityButton("→", symbol: nil, tint: .indigo) {
+                    manager.moveRight()
+                }
+            }
+
+            LazyVGrid(columns: columns, spacing: 9) {
+                key("sin") { manager.insertAtom("sin(") }
+                key("cos") { manager.insertAtom("cos(") }
+                key("tan") { manager.insertAtom("tan(") }
+                key("ln") { manager.insertAtom("ln(") }
+
+                key("7", style: .number) { manager.insertAtom("7") }
+                key("8", style: .number) { manager.insertAtom("8") }
+                key("9", style: .number) { manager.insertAtom("9") }
+                key("÷", style: .operatorKey) { manager.insertAtom("÷") }
+
+                key("4", style: .number) { manager.insertAtom("4") }
+                key("5", style: .number) { manager.insertAtom("5") }
+                key("6", style: .number) { manager.insertAtom("6") }
+                key("×", style: .operatorKey) { manager.insertAtom("×") }
+
+                key("1", style: .number) { manager.insertAtom("1") }
+                key("2", style: .number) { manager.insertAtom("2") }
+                key("3", style: .number) { manager.insertAtom("3") }
+                key("−", style: .operatorKey) { manager.insertAtom("−") }
+
+                key("0", style: .number) { manager.insertAtom("0") }
+                key(".", style: .number) { manager.insertAtom(".") }
+                key("(", style: .number) { manager.insertAtom("(") }
+                key("+", style: .operatorKey) { manager.insertAtom("+") }
+
+                key("a⁄b", style: .structure) { manager.insertFraction() }
+                key("√x", style: .structure) { manager.insertSquareRoot() }
+                key("x²", style: .structure) { manager.insertSquared() }
+                key("10ˣ", style: .structure) { manager.insertTenToPower() }
+            }
+        }
+    }
+
+    private enum KeyStyle {
+        case number, operatorKey, structure
+    }
+
+    private func key(_ title: String, style: KeyStyle = .number, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 19, weight: .medium, design: .rounded))
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(keyBackground(style), in: RoundedRectangle(cornerRadius: 14))
+                .foregroundStyle(keyForeground(style))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func keyBackground(_ style: KeyStyle) -> Color {
+        switch style {
+        case .number: return Color(uiColor: .secondarySystemBackground)
+        case .operatorKey: return Color.indigo.opacity(0.10)
+        case .structure: return Color.teal.opacity(0.12)
+        }
+    }
+
+    private func keyForeground(_ style: KeyStyle) -> Color {
+        switch style {
+        case .number: return .primary
+        case .operatorKey: return .indigo
+        case .structure: return .teal
+        }
+    }
+
+    private func utilityButton(
+        _ title: String,
+        symbol: String?,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if let symbol {
+                    Image(systemName: symbol)
+                }
+                Text(title)
+            }
+            .font(.subheadline.weight(.semibold))
+            .frame(maxWidth: .infinity)
+            .frame(height: 42)
+            .background(tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+            .foregroundStyle(tint)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Recursive expression renderer
+
+struct ExpressionRow: View {
+    let nodes: [VisualNode]
+    let path: [Cursor.Step]
+    let cursor: Cursor
+    let onSetCursor: ([Cursor.Step], Int) -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 1) {
+            ForEach(0...nodes.count, id: \.self) { gap in
+                if cursor.path == path && cursor.index == gap {
+                    CursorCaret()
+                }
+
+                if gap < nodes.count {
+                    NodeView(
+                        node: nodes[gap],
+                        path: path,
+                        nodeIndex: gap,
+                        cursor: cursor,
+                        onSetCursor: onSetCursor
+                    )
+                }
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .frame(minHeight: 36)
+    }
+}
+
+struct NodeView: View {
+    let node: VisualNode
+    let path: [Cursor.Step]
+    let nodeIndex: Int
+    let cursor: Cursor
+    let onSetCursor: ([Cursor.Step], Int) -> Void
+
+    var body: some View {
+        switch node {
+        case .atom(let value):
+            Text(value)
+                .font(.system(size: 27, weight: .regular, design: .rounded))
+                .foregroundStyle(.primary)
+                .padding(.vertical, 3)
+                .contentShape(Rectangle())
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(
+                                SpatialTapGesture().onEnded { value in
+                                    let edge = value.location.x < proxy.size.width / 2
+                                        ? nodeIndex
+                                        : nodeIndex + 1
+                                    onSetCursor(path, edge)
+                                }
+                            )
+                    }
+                }
+
+        case .structure(let structure):
+            StructureView(
+                structure: structure,
+                path: path,
+                nodeIndex: nodeIndex,
+                cursor: cursor,
+                onSetCursor: onSetCursor
+            )
+        }
+    }
+}
+
+struct StructureView: View {
+    let structure: Structure
+    let path: [Cursor.Step]
+    let nodeIndex: Int
+    let cursor: Cursor
+    let onSetCursor: ([Cursor.Step], Int) -> Void
+
+    var body: some View {
+        Group {
+            switch structure.associatedOperator.name {
+            case FractionOperator.shared.name:
+                VStack(spacing: 4) {
+                    slot(0)
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.75))
+                        .frame(height: 1.5)
+                        .frame(minWidth: 34)
+                    slot(1)
+                }
+                .padding(.horizontal, 3)
+            case SquareRootOperator.shared.name:
+                HStack(alignment: .center, spacing: 1) {
+                    Text("√")
+                        .font(.system(size: 31, weight: .regular, design: .serif))
+                    slot(0)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 4)
+                        .overlay(alignment: .top) {
+                            Rectangle().fill(Color.primary.opacity(0.75)).frame(height: 1.5)
+                        }
+                }
+            case PowerOperator.shared.name:
+                HStack(alignment: .top, spacing: 1) {
+                    slot(0)
+                    slot(1)
+                        .scaleEffect(0.72, anchor: .bottomLeading)
+                        .offset(y: -7)
+                }
+//            case .custom(let symbol):
+//                HStack(spacing: 3) {
+//                    Text(symbol)
+//                    ForEach(structure.slots.indices, id: \.self) { index in
+//                        slot(index)
+//                    }
+//                }
+            default:
+                Text("???")
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private func slot(_ index: Int) -> some View {
+        let slotPath = path + [Cursor.Step(nodeIndex: nodeIndex, slotIndex: index)]
+        if structure.slots.indices.contains(index) {
+            let content = structure.slots[index]
+            if content.isEmpty {
+                Button {
+                    onSetCursor(slotPath, 0)
+                } label: {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.indigo.opacity(0.07))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 4)
+                                .strokeBorder(Color.indigo.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                        }
+                        .frame(width: 30, height: 27)
+                        .overlay {
+                            if cursor.path == slotPath {
+                                CursorCaret()
+                            } else {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundStyle(.indigo.opacity(0.7))
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+            } else {
+                ExpressionRow(
+                    nodes: content,
+                    path: slotPath,
+                    cursor: cursor,
+                    onSetCursor: onSetCursor
+                )
+            }
+        }
+    }
+}
+
+struct CursorCaret: View {
+    var body: some View {
+        Capsule()
+            .fill(Color.indigo)
+            .frame(width: 2, height: 29)
+            .padding(.horizontal, 1)
+    }
+}
