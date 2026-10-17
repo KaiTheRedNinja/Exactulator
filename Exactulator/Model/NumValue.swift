@@ -41,6 +41,19 @@ struct Quantity {
 
         return try .init(value: value.multiplying(unit.scale.dividing(target.scale)), unit: target)
     }
+
+    static func convertedToCompatible(lhs: Quantity, rhs: Quantity) throws -> (newLhs: Quantity, newRhs: Quantity) {
+        // if lhs is not .one, attempt to convert rhs
+        if lhs.unit != .one {
+            return try (lhs, rhs.converted(to: lhs.unit))
+        }
+        // if rhs is not .one, attempt to convert lhs
+        if rhs.unit != .one {
+            return try (lhs.converted(to: rhs.unit), rhs)
+        }
+        // both are one, no conversion needed
+        return (lhs, rhs)
+    }
 }
 
 

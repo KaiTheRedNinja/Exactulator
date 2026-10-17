@@ -88,7 +88,7 @@ struct AdditionOperator: InfixOperator {
 
     func result(lhs: Quantity, rhs: Quantity) throws(OperatorError) -> Quantity {
         // both must be the same unit, otherwise invalid.
-        guard let rhs = try? rhs.converted(to: lhs.unit) else {
+        guard let (lhs, rhs) = try? Quantity.convertedToCompatible(lhs: lhs, rhs: rhs) else {
             throw OperatorError.unitError(.incompatibleDimensions(from: rhs.unit, to: lhs.unit))
         }
         return try .init(value: lhs.value.adding(rhs.value), unit: lhs.unit)
@@ -105,7 +105,7 @@ struct SubtractionOperator: InfixOperator, PrefixOperator {
 
     func result(lhs: Quantity, rhs: Quantity) throws(OperatorError) -> Quantity {
         // both must be the same unit, otherwise invalid.
-        guard let rhs = try? rhs.converted(to: lhs.unit) else {
+        guard let (lhs, rhs) = try? Quantity.convertedToCompatible(lhs: lhs, rhs: rhs) else {
             throw OperatorError.unitError(.incompatibleDimensions(from: rhs.unit, to: lhs.unit))
         }
         return try .init(value: lhs.value.subtracting(rhs.value), unit: lhs.unit)

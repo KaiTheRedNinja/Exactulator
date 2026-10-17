@@ -72,7 +72,9 @@ struct Unit: Equatable {
     }
 
     func multiplied(by other: Unit) -> Unit {
-        Unit(
+        if self == .one { return other }
+        if other == .one { return self }
+        return Unit(
             symbol: "\(symbol)·\(other.symbol)",
             scale: try! scale.multiplying(other.scale),
             dimensions: dimensions * other.dimensions
@@ -80,7 +82,8 @@ struct Unit: Equatable {
     }
 
     func divided(by other: Unit) -> Unit {
-        Unit(
+        if other == .one { return self }
+        return Unit(
             symbol: "\(symbol)/\(other.symbol)",
             scale: try! scale.dividing(other.scale),
             dimensions: dimensions / other.dimensions
