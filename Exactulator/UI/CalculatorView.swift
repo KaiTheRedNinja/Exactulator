@@ -9,61 +9,58 @@ import SwiftUI
 
 struct CalculatorView: View {
     @StateObject var manager: CalculatorManager
+    @State var showKeypad: Bool = true
 
     @Namespace var namespace
 
     var body: some View {
-        VStack(spacing: 0) {
-//            header
+        NavigationStack {
+            VStack(spacing: 0) {
+                inputAndResult
+                    .frame(maxHeight: .infinity)
+                    .background(Color(uiColor: .secondarySystemBackground))
 
-            inputAndResult
-                .frame(maxHeight: .infinity)
-                .background(Color(uiColor: .secondarySystemBackground))
-
-            keypad
-                .padding(.horizontal, 12)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
-                .background(Color(uiColor: .systemBackground))
+                if showKeypad {
+                    keypad
+                        .padding(.horizontal, 12)
+                        .padding(.top, 14)
+                        .padding(.bottom, 10)
+                        .background(Color(uiColor: .systemBackground))
+                }
+            }
+            .background(Color(uiColor: .systemBackground))
+            .preferredColorScheme(.light)
+            .toolbar {
+                Button {
+                    withAnimation {
+                        showKeypad.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: showKeypad ? "grid" : "grid.circle.fill")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(Color.cyan.opacity(0.10), in: Capsule())
+                    .foregroundStyle(.cyan)
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .background(Color(uiColor: .systemBackground))
-        .preferredColorScheme(.light)
+        .onChange(of: manager.expression) { _, _ in
+            withAnimation {
+                showKeypad = true
+            }
+        }
     }
-
-//    private var header: some View {
-//        HStack {
-//            VStack(alignment: .leading, spacing: 3) {
-//                Text("FORMULA")
-//                    .font(.caption2.weight(.bold))
-//                    .tracking(1.8)
-//                    .foregroundStyle(.secondary)
-//                Text("Calculator")
-//                    .font(.title2.weight(.semibold))
-//            }
-//            Spacer()
-//            Button {
-//                manager.toggleDisplayMode()
-//            } label: {
-//                HStack(spacing: 6) {
-//                    Image(systemName: "arrow.left.arrow.right")
-//                    Text(manager.displayMode.label)
-//                }
-//                .font(.subheadline.weight(.semibold))
-//                .padding(.horizontal, 12)
-//                .padding(.vertical, 9)
-//                .background(Color.indigo.opacity(0.10), in: Capsule())
-//                .foregroundStyle(.indigo)
-//            }
-//            .buttonStyle(.plain)
-//        }
-//        .padding(.horizontal, 20)
-//        .padding(.vertical, 15)
-//    }
 
     private var inputAndResult: some View {
         VStack(alignment: .leading, spacing: 18) {
             ScrollView(.vertical) {
                 VStack(spacing: 20) {
+                    Spacer()
+
                     ForEach(manager.pastOperations) { pastOperation in
                         VStack(alignment: .leading, spacing: 5) {
                             // expression
@@ -76,23 +73,9 @@ struct CalculatorView: View {
                                 )
                                 .matchedGeometryEffect(id: IDStr(uuid: pastOperation.id, str: "expression"), in: namespace)
                                 .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-                                .padding(20)
                             }
                             .defaultScrollAnchor(.trailing)
                             .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-
-                            // solution
-                            ScrollView(.horizontal) {
-                                ExpressionRow(
-                                    nodes: [.atom("=")] + pastOperation.solution,
-                                    path: [],
-                                    cursor: Cursor(path: [], index: -1),
-                                    onSetCursor: { _, _ in }
-                                )
-                                .matchedGeometryEffect(id: IDStr(uuid: pastOperation.id, str: "solution"), in: namespace)
-                            }
-                            .frame(minWidth: 0)
-                            .scrollClipDisabled()
                             .padding(10)
                             .background {
                                 RoundedRectangle(cornerRadius: 10)
@@ -101,6 +84,20 @@ struct CalculatorView: View {
                             }
                             .clipShape(Rectangle())
                             .padding(10)
+
+                            // solution
+                            ScrollView(.horizontal) {
+                                ExpressionRow(
+                                    nodes: [.atom("=")] + pastOperation.solution,
+                                    path: [],
+                                    cursor: Cursor(path: [], index: -1),
+                                    onSetCursor: { _, _ in manager.setActive(expression: pastOperation.solution) }
+                                )
+                                .matchedGeometryEffect(id: IDStr(uuid: pastOperation.id, str: "solution"), in: namespace)
+                                .padding(20)
+                            }
+                            .frame(minWidth: 0)
+                            .scrollClipDisabled()
                         }
                     }
 
@@ -110,24 +107,30 @@ struct CalculatorView: View {
                         Spacer()
                             .frame(height: 30)
                     }
-
-                    ScrollView(.horizontal) {
-                        ExpressionRow(
-                            nodes: manager.expression,
-                            path: [],
-                            cursor: manager.cursor,
-                            onSetCursor: manager.setCursor
-                        )
-                        .matchedGeometryEffect(id: IDStr(uuid: manager.currentId, str: "expression"), in: namespace)
-                        .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                        .padding(20)
-                    }
-                    .defaultScrollAnchor(.trailing)
                 }
             }
             .defaultScrollAnchor(.bottom)
             .scrollClipDisabled()
             .frame(minWidth: 0, maxWidth: .infinity, minHeight: 210, maxHeight: .infinity, alignment: .topTrailing)
+
+            ScrollView(.horizontal) {
+                ExpressionRow(
+                    nodes: manager.expression,
+                    path: [],
+                    cursor: manager.cursor,
+                    onSetCursor: manager.setCursor
+                )
+                .matchedGeometryEffect(id: IDStr(uuid: manager.currentId, str: "expression"), in: namespace)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            }
+            .defaultScrollAnchor(.trailing)
+            .padding(10)
+            .background {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(uiColor: .systemBackground))
+            }
+            .clipShape(Rectangle())
+            .padding(10)
 
             HStack(alignment: .bottom, spacing: 6) {
                 if let warning = manager.warning {
@@ -140,7 +143,7 @@ struct CalculatorView: View {
                             nodes: [.atom("=")] + manager.solution,
                             path: [],
                             cursor: Cursor(path: [], index: -1),
-                            onSetCursor: { _, _ in }
+                            onSetCursor: { _, _ in manager.setActive(expression: manager.solution) }
                         )
                         .matchedGeometryEffect(id: IDStr(uuid: manager.currentId, str: "solution"), in: namespace)
                     }
@@ -182,12 +185,7 @@ struct CalculatorView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .background {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(uiColor: .systemBackground))
-            }
-            .padding(10)
+            .padding(20)
         }
     }
 

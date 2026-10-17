@@ -151,6 +151,13 @@ extension CalculatorManager {
         refreshSolution()
     }
 
+    func setActive(expression: [VisualNode]) {
+        saveCurrent()
+        self.expression = expression
+        setCursor(path: [], index: expression.count) // at the end
+        refreshSolution()
+    }
+
     private func enterSlot(ofInsertedNodeAt nodeIndex: Int, slot: Int) {
         cursor.path.append(Cursor.Step(nodeIndex: nodeIndex, slotIndex: slot))
         cursor.index = 0
