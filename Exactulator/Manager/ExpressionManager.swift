@@ -43,7 +43,19 @@ class ExpressionManager {
 
             func pushCurrent() {
                 // this is safe to do even with an empty string, as `build` will just return []
-                result.append(contentsOf: [Token].build(fromString: currentString).map { .token($0) })
+                result.append(
+                    contentsOf: [Token].build(fromString: currentString).map { token in
+                        switch token {
+                        case .numerical(let string):
+                            .operation(ValueOperation(value: .init(value: .bestGuess(value: string), unit: .one)))
+                        default:
+                            if let op = registeredOps.match(constantToken: token) {
+                                .operation(ConstantOperation(constant: op))
+                            } else {
+                                .token(token)
+                            }
+                        }
+                    })
                 currentString = ""
             }
 
@@ -81,15 +93,6 @@ class ExpressionManager {
         // convert the expression into tokens
         var tokens: [WorkingToken] = [Token].build(fromString: expression).map { .token($0) }
 
-        // convert values and balance brackets
-        try balanceWorkingTokenBrackets(tokens: &tokens)
-
-        return try computeSubexpression(
-            workingTokens: tokens[tokens.startIndex..<tokens.endIndex]
-        )
-    }
-
-    func balanceWorkingTokenBrackets(tokens: inout [WorkingToken]) throws(TreeBuildingError) {
         // convert values and constants into tokens
         for (index, workToken) in tokens.enumerated() {
             guard case let .token(token) = workToken else { continue }
@@ -103,6 +106,15 @@ class ExpressionManager {
             }
         }
 
+        // balance brackets
+        try balanceWorkingTokenBrackets(tokens: &tokens)
+
+        return try computeSubexpression(
+            workingTokens: tokens[tokens.startIndex..<tokens.endIndex]
+        )
+    }
+
+    func balanceWorkingTokenBrackets(tokens: inout [WorkingToken]) throws(TreeBuildingError) {
         // Check for matching bracket pairs. There cannot be more close brackets than open brackets
         var height: Int = 0
         for token in tokens {

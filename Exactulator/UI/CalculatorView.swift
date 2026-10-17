@@ -21,47 +21,9 @@ struct CalculatorView: View {
         VStack(spacing: 0) {
 //            header
 
-            ScrollView([.horizontal, .vertical]) {
-                VStack(alignment: .trailing, spacing: 18) {
-                    ExpressionRow(
-                        nodes: manager.expression,
-                        path: [],
-                        cursor: manager.cursor,
-                        onSetCursor: manager.setCursor
-                    )
-                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .trailing)
-
-                    Rectangle()
-                        .fill(Color.primary.opacity(0.08))
-                        .frame(height: 1)
-
-                    VStack(alignment: .trailing, spacing: 6) {
-                        Text(manager.warning == nil ? "RESULT" : "WARNING")
-                            .font(.caption2.weight(.bold))
-                            .tracking(1.4)
-                            .foregroundStyle(manager.warning == nil ? Color.secondary : .orange)
-
-                        if let warning = manager.warning {
-                            Text(warning)
-                                .font(.callout)
-                                .foregroundStyle(.orange)
-                                .multilineTextAlignment(.trailing)
-                        } else {
-                            ExpressionRow(
-                                nodes: manager.solution,
-                                path: [],
-                                cursor: Cursor(path: [], index: -1),
-                                onSetCursor: { _, _ in }
-                            )
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                .padding(20)
-                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 210, alignment: .topTrailing)
-            }
-            .frame(maxHeight: .infinity)
-            .background(Color(uiColor: .secondarySystemBackground))
+            inputAndResult
+                .frame(maxHeight: .infinity)
+                .background(Color(uiColor: .secondarySystemBackground))
 
             keypad
                 .padding(.horizontal, 12)
@@ -102,6 +64,62 @@ struct CalculatorView: View {
 //        .padding(.horizontal, 20)
 //        .padding(.vertical, 15)
 //    }
+
+    private var inputAndResult: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            ScrollView([.horizontal, .vertical]) {
+                ExpressionRow(
+                    nodes: manager.expression,
+                    path: [],
+                    cursor: manager.cursor,
+                    onSetCursor: manager.setCursor
+                )
+                .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                .padding(20)
+            }
+            .scrollClipDisabled()
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 210, maxHeight: .infinity, alignment: .topTrailing)
+
+            HStack(alignment: .bottom, spacing: 6) {
+                if let warning = manager.warning {
+                    Text(warning)
+                        .font(.callout)
+                        .multilineTextAlignment(.leading)
+                } else {
+                    ExpressionRow(
+                        nodes: [.atom("=")] + manager.solution,
+                        path: [],
+                        cursor: Cursor(path: [], index: -1),
+                        onSetCursor: { _, _ in }
+                    )
+
+                    Spacer()
+
+                    Button {
+                        manager.toggleDisplayMode()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.left.arrow.right")
+                            Text(manager.displayMode.label)
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(Color.indigo.opacity(0.10), in: Capsule())
+                        .foregroundStyle(.indigo)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(uiColor: .systemBackground))
+            }
+            .padding(10)
+        }
+    }
 
     private var keypad: some View {
         VStack(spacing: 9) {
