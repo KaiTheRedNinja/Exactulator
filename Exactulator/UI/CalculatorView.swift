@@ -229,7 +229,15 @@ struct CalculatorView: View {
                 }
 
                 HStack(spacing: 9) {
-                    key("m", style: .operatorKey) { manager.insertAtom("m") }
+                    key("m", style: .operatorKey, secondaryActions: [
+                        ("m", { manager.insertAtom("m") }),
+                        ("km", { manager.insertAtom("km") }),
+                        ("cm", { manager.insertAtom("cm") }),
+                        ("mm", { manager.insertAtom("mm") }),
+                        ("mi", { manager.insertAtom("mi") }),
+                        ("ft", { manager.insertAtom("ft") }),
+                        ("in", { manager.insertAtom("in") })
+                    ]) { manager.insertAtom("m") }
                     key("7", style: .number) { manager.insertAtom("7") }
                     key("8", style: .number) { manager.insertAtom("8") }
                     key("9", style: .number) { manager.insertAtom("9") }
@@ -237,7 +245,11 @@ struct CalculatorView: View {
                 }
 
                 HStack(spacing: 9) {
-                    key("kg", style: .operatorKey) { manager.insertAtom("kg") }
+                    key("kg", style: .operatorKey, secondaryActions: [
+                        ("kg", { manager.insertAtom("kg") }),
+                        ("g", { manager.insertAtom("g") }),
+                        ("lb", { manager.insertAtom("lb") })
+                    ]) { manager.insertAtom("kg") }
                     key("4", style: .number) { manager.insertAtom("4") }
                     key("5", style: .number) { manager.insertAtom("5") }
                     key("6", style: .number) { manager.insertAtom("6") }
@@ -245,7 +257,12 @@ struct CalculatorView: View {
                 }
 
                 HStack(spacing: 9) {
-                    key("s", style: .operatorKey) { manager.insertAtom("s") }
+                    key("s", style: .operatorKey, secondaryActions: [
+                        ("s", { manager.insertAtom("s") }),
+                        ("h", { manager.insertAtom("h") }),
+                        ("min", { manager.insertAtom("min") }),
+                        ("ms", { manager.insertAtom("ms") })
+                    ]) { manager.insertAtom("s") }
                     key("1", style: .number) { manager.insertAtom("1") }
                     key("2", style: .number) { manager.insertAtom("2") }
                     key("3", style: .number) { manager.insertAtom("3") }
@@ -304,6 +321,38 @@ struct CalculatorView: View {
                 .foregroundStyle(style.foreground)
         }
         .buttonStyle(OnPressedButtonStyle(onPressed: action))
+    }
+
+    private func key(
+        _ title: String,
+        style: KeyStyle = .number,
+        secondaryActions: [(label: String, action: () -> Void)],
+        primaryAction: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 2) {
+            Button(action: {}) {
+                Text(title)
+                    .font(.system(size: 19, weight: .medium, design: .rounded))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: style.height)
+                    .background(style.background, in: UnevenRoundedRectangle(cornerRadii: .init(topLeading: 12, bottomLeading: 12)))
+                    .foregroundStyle(style.foreground)
+            }
+            .buttonStyle(OnPressedButtonStyle(onPressed: primaryAction))
+
+            Menu {
+                ForEach(secondaryActions.enumerated(), id: \.offset) { (_, secondaryAction) in
+                    Button(secondaryAction.label, action: secondaryAction.action)
+                }
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 19, weight: .medium, design: .rounded))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: style.height)
+                    .background(style.background, in: UnevenRoundedRectangle(cornerRadii: .init(bottomTrailing: 12, topTrailing: 12)))
+                    .foregroundStyle(style.foreground)
+            }
+        }
     }
 
     private func utilityButton(
