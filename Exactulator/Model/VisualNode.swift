@@ -51,7 +51,7 @@ extension Quantity {
             } else {
                 // create a fraction
                 nodes.append(.structure(.init(
-                    associatedOperator: SubexpressionOperator.shared, // TODO: actually get a fraction operator
+                    associatedOperator: FractionOperator.shared,
                     slots: [
                         [VisualNode].from(string: String(exactValue.numerator)),
                         [VisualNode].from(string: String(exactValue.denominator))
@@ -66,7 +66,7 @@ extension Quantity {
             } else if exactValue.piPower > 1 {
                 // add pi and a power
                 nodes.append(.structure(.init(
-                    associatedOperator: SubexpressionOperator.shared, // TODO: actually get a power operator
+                    associatedOperator: PowerOperator.shared,
                     slots: [
                         [.atom("π")],
                         [VisualNode].from(string: String(exactValue.piPower))
@@ -78,7 +78,7 @@ extension Quantity {
             if exactValue.surdBase > 1 {
                 // add square root
                 nodes.append(.structure(.init(
-                    associatedOperator: SquareRootOperator.shared, // TODO: actually get a power operator
+                    associatedOperator: SquareRootOperator.shared,
                     slots: [
                         [VisualNode].from(string: String(exactValue.surdBase))
                     ]

@@ -248,6 +248,42 @@ enum NumValue: Equatable, ExpressibleByFloatLiteral {
             return .imprecise(.init(value: 1 / imprecise.value))
         }
     }
+
+    func toPower(_ power: NumValue) -> NumValue {
+        let base = self
+
+        // if power is 1/2, do a square root instead
+        // must not be in terms of pi, must not already have a sqrt, must be whole
+        guard power != .exact(.init(1, div: 2)) else {
+            if case let .exact(exact) = self, exact.denominator == 1, exact.piPower == 0, exact.surdBase == 1 {
+                return .exact(.init(1, surd: exact.numerator))
+            }
+            return .imprecise(.init(value: sqrt(self.asImprecise.value)))
+        }
+
+        // Both must be exact, and base must be an integer, and surd must be compatible, otherwise just naive pow
+        guard case let .exact(baseExact) = base,
+              case let .exact(powerExact) = power,
+              powerExact.denominator == 1,
+              baseExact.surdBase == 1 || powerExact.numerator%2 == 0 // no surd, or power is even
+                else {
+            return .imprecise(.init(value: pow(base.asImprecise.value, power.asImprecise.value)))
+        }
+        let powerVal = powerExact.numerator
+
+        // compute the power
+        let newNumerator = if baseExact.surdBase == 1 {
+            // if no surd, just square it
+            Int(pow(Double(baseExact.numerator), Double(powerVal)))
+        } else {
+            // if yes surd, base must be a multiple of two, so we take out the surd first
+            Int(pow(Double(baseExact.numerator * baseExact.numerator * baseExact.surdBase), Double(powerVal)/2))
+        }
+        let newDenominator = Int(pow(Double(baseExact.denominator), Double(powerVal)))
+        let newPi = baseExact.piPower * powerVal
+
+        return .exact(.init(newNumerator, div: newDenominator, pi: newPi, surd: 1))
+    }
 }
 
 enum ExactError: Error {

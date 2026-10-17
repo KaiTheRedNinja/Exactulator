@@ -41,26 +41,32 @@ enum OperatorPriority: Int {
     case addition = 1
 }
 
+/// A type with a shared instance
+protocol Shared {
+    /// The shared instance of this type
+    static var shared: Self { get }
+}
+
 /// An operator placed between two values, e.g. `1+1`
-protocol InfixOperator: Operator {
+protocol InfixOperator: Operator, Shared {
     /// Returns the result of this operation given the values to the left and right of the operator
     func result(lhs: Quantity, rhs: Quantity) throws(OperatorError) -> Quantity
 }
 
 /// An operator placed before a value, e.g. `-1`
-protocol PrefixOperator: Operator {
+protocol PrefixOperator: Operator, Shared {
     /// Returns the result of this operation given the value to the right of the operator
     func result(rhs: Quantity) throws(OperatorError) -> Quantity
 }
 
 /// An operator placed after a value, e.g. `3!`
-protocol PostfixOperator: Operator {
+protocol PostfixOperator: Operator, Shared {
     /// Returns the result of this operation given the value to the left of the operator
     func result(lhs: Quantity) throws(OperatorError) -> Quantity
 }
 
 /// An operator that represents a function
-protocol FunctionOperator: Operator {
+protocol FunctionOperator: Operator, Shared {
     /// The number of arguments that this operator accepts
     var argumentCount: ClosedRange<Int> { get }
     /// Returns the result of this operation given the parameters passed to the operator.
@@ -69,7 +75,7 @@ protocol FunctionOperator: Operator {
 
 /// An implicit infix operator. There may only be one of these. Behaviour is used when
 /// no operator is placed between two values, such as `(2)(3)`.
-protocol ImplicitInfixOperator: InfixOperator {
+protocol ImplicitInfixOperator: InfixOperator, Shared {
 }
 
 /// An operator which just matches directly to a value
@@ -146,6 +152,28 @@ struct DivisionOperator: InfixOperator {
         return try .init(
             value: lhs.value.dividing(rhs.value),
             unit: lhs.unit.divided(by: rhs.unit)
+        )
+    }
+}
+
+/// An operator that performs division, but has fraction semantics
+struct FractionOperator: FunctionOperator {
+    var name: String { "divide" }
+    var matchTokens: Set<Token> { [] }
+    var priority: OperatorPriority { .multiplication }
+    var argumentCount: ClosedRange<Int> { 2...2 }
+
+    static let shared: FractionOperator = .init()
+
+    /// `elements.first / elements.last`
+    func result(elements: [Quantity]) throws(OperatorError) -> Quantity {
+        let numerator = elements.first!
+        let denominator = elements.last!
+
+        guard numerator.value.asImprecise.value != 0 else { throw OperatorError.mathError }
+        return try .init(
+            value: numerator.value.dividing(denominator.value),
+            unit: numerator.unit.divided(by: denominator.unit)
         )
     }
 }
@@ -366,14 +394,40 @@ struct SquareRootOperator: FunctionOperator {
     static let shared: SquareRootOperator = .init()
 
     // TODO: get fractional units working
-    func result(elements: [Quantity]) -> Quantity {
+    func result(elements: [Quantity]) throws(OperatorError) -> Quantity {
         let input = elements.first!
         // must not be in terms of pi, must not already have a sqrt, must be whole
         if case let .exact(exact) = input.value, exact.denominator == 1, exact.piPower == 0, exact.surdBase == 1 {
             return .init(value: .exact(.init(1, surd: exact.numerator)), unit: .one)
         }
 
-        return .init(value: .imprecise(.init(value: sqrt(input.value.asImprecise.value))), unit: .one)
+        guard input.value.asImprecise.value >= 0 else { throw OperatorError.mathError }
+
+        return .init(value: input.value.toPower(.exact(.init(1, div: 2))), unit: .one)
+    }
+}
+
+/// An operator that performs the power function
+struct PowerOperator: FunctionOperator {
+    var name: String { "pow" }
+    var matchTokens: Set<Token> { ["pow"] }
+    var priority: OperatorPriority { .bracket }
+    var argumentCount: ClosedRange<Int> { 1...2 }
+
+    static let shared: PowerOperator = .init()
+
+    func result(elements: [Quantity]) -> Quantity {
+        let base = elements.first!
+        let power = if elements.count > 1 { elements.last! } else { Quantity(value: 2.0, unit: .one) }
+
+        let resultValue = base.value.toPower(power.value)
+        let resultUnit = if case let .exact(exactPower) = power.value, exactPower.denominator == 1 {
+            base.unit.raised(to: exactPower.numerator)
+        } else {
+            Unit.one
+        }
+
+        return .init(value: resultValue, unit: resultUnit)
     }
 }
 

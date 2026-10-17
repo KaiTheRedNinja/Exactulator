@@ -90,14 +90,13 @@ struct Unit: Equatable {
         )
     }
 
-    // TODO: when we make a power operator, implement this.
-//    func raised(to exponent: Int) -> Unit {
-//        Unit(
-//            symbol: "(\(symbol))^\(exponent)",
-//            scale: pow(scale, Double(exponent)),
-//            dimensions: dimensions.raised(to: exponent)
-//        )
-//    }
+    func raised(to exponent: Int) -> Unit {
+        Unit(
+            symbol: "(\(symbol))^\(exponent)",
+            scale: scale.toPower(.exact(.init(exponent))),
+            dimensions: dimensions.raised(to: exponent)
+        )
+    }
 }
 
 // MARK: - Unit System

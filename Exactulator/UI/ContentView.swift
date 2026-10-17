@@ -21,12 +21,14 @@ struct ContentView: View {
                                 SubtractionOperator.shared,
                                 MultiplicationOperator.shared,
                                 DivisionOperator.shared,
+                                FractionOperator.shared,
                                 UnitConvertOperator.shared,
                                 LogOperator.shared,
                                 SinOperator.shared,
                                 CosOperator.shared,
                                 TanOperator.shared,
                                 SquareRootOperator.shared,
+                                PowerOperator.shared,
                                 ConstValueOperator.pi,
                             ] + unitsSystem.units.values.map {
                                 UnitOperator(
