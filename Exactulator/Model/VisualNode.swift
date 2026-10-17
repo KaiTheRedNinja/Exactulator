@@ -7,14 +7,24 @@
 
 import Foundation
 
-enum VisualNode {
+enum VisualNode: Hashable {
     case atom(String)
     case structure(Structure)
 }
 
-struct Structure {
+struct Structure: Hashable {
     var associatedOperator: FunctionOperator
     var slots: [[VisualNode]]
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(associatedOperator.name)
+        hasher.combine(slots)
+    }
+
+    static func == (lhs: Structure, rhs: Structure) -> Bool {
+        lhs.associatedOperator.name == rhs.associatedOperator.name
+        && lhs.slots == rhs.slots
+    }
 }
 
 struct Cursor {

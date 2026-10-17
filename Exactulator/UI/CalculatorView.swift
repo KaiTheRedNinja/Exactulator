@@ -10,6 +10,8 @@ import SwiftUI
 struct CalculatorView: View {
     @StateObject var manager: CalculatorManager
 
+    @Namespace var namespace
+
     var body: some View {
         VStack(spacing: 0) {
 //            header
@@ -60,16 +62,70 @@ struct CalculatorView: View {
 
     private var inputAndResult: some View {
         VStack(alignment: .leading, spacing: 18) {
-            ScrollView([.horizontal, .vertical]) {
-                ExpressionRow(
-                    nodes: manager.expression,
-                    path: [],
-                    cursor: manager.cursor,
-                    onSetCursor: manager.setCursor
-                )
-                .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-                .padding(20)
+            ScrollView(.vertical) {
+                VStack(spacing: 20) {
+                    ForEach(manager.pastOperations) { pastOperation in
+                        VStack(alignment: .leading, spacing: 5) {
+                            // expression
+                            ScrollView(.horizontal) {
+                                ExpressionRow(
+                                    nodes: pastOperation.expression,
+                                    path: [],
+                                    cursor: Cursor(path: [], index: -1),
+                                    onSetCursor: { manager.setActive(pastOpId: pastOperation.id, path: $0, index: $1) }
+                                )
+                                .matchedGeometryEffect(id: IDStr(uuid: pastOperation.id, str: "expression"), in: namespace)
+                                .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                                .padding(20)
+                            }
+                            .defaultScrollAnchor(.trailing)
+                            .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+
+                            // solution
+                            ScrollView(.horizontal) {
+                                ExpressionRow(
+                                    nodes: [.atom("=")] + pastOperation.solution,
+                                    path: [],
+                                    cursor: Cursor(path: [], index: -1),
+                                    onSetCursor: { _, _ in }
+                                )
+                                .matchedGeometryEffect(id: IDStr(uuid: pastOperation.id, str: "solution"), in: namespace)
+                            }
+                            .frame(minWidth: 0)
+                            .scrollClipDisabled()
+                            .padding(10)
+                            .background {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color(uiColor: .systemBackground))
+                                    .opacity(0.5)
+                            }
+                            .clipShape(Rectangle())
+                            .padding(10)
+                        }
+                    }
+
+                    if !manager.pastOperations.isEmpty {
+                        Divider()
+
+                        Spacer()
+                            .frame(height: 30)
+                    }
+
+                    ScrollView(.horizontal) {
+                        ExpressionRow(
+                            nodes: manager.expression,
+                            path: [],
+                            cursor: manager.cursor,
+                            onSetCursor: manager.setCursor
+                        )
+                        .matchedGeometryEffect(id: IDStr(uuid: manager.currentId, str: "expression"), in: namespace)
+                        .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        .padding(20)
+                    }
+                    .defaultScrollAnchor(.trailing)
+                }
             }
+            .defaultScrollAnchor(.bottom)
             .scrollClipDisabled()
             .frame(minWidth: 0, maxWidth: .infinity, minHeight: 210, maxHeight: .infinity, alignment: .topTrailing)
 
@@ -79,12 +135,17 @@ struct CalculatorView: View {
                         .font(.callout)
                         .multilineTextAlignment(.leading)
                 } else {
-                    ExpressionRow(
-                        nodes: [.atom("=")] + manager.solution,
-                        path: [],
-                        cursor: Cursor(path: [], index: -1),
-                        onSetCursor: { _, _ in }
-                    )
+                    ScrollView(.horizontal) {
+                        ExpressionRow(
+                            nodes: [.atom("=")] + manager.solution,
+                            path: [],
+                            cursor: Cursor(path: [], index: -1),
+                            onSetCursor: { _, _ in }
+                        )
+                        .matchedGeometryEffect(id: IDStr(uuid: manager.currentId, str: "solution"), in: namespace)
+                    }
+                    .scrollClipDisabled()
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .topTrailing)
 
                     Spacer()
 
@@ -100,6 +161,22 @@ struct CalculatorView: View {
                         .padding(.vertical, 9)
                         .background(Color.indigo.opacity(0.10), in: Capsule())
                         .foregroundStyle(.indigo)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        withAnimation {
+                            manager.saveCurrent()
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrowshape.up")
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(Color.green.opacity(0.10), in: Capsule())
+                        .foregroundStyle(.green)
                     }
                     .buttonStyle(.plain)
                 }
@@ -146,7 +223,7 @@ struct CalculatorView: View {
                     key("a/b", style: .function) { manager.insertFraction() }
                     key("√x", style: .function) { manager.insertSquareRoot() }
                     key("(", style: .function) { manager.insertAtom("(") }
-                    key(")", style: .function) { manager.insertAtom("(") }
+                    key(")", style: .function) { manager.insertAtom(")") }
                     key("x²", style: .function) { manager.insertSquared() }
                     key("x⁻¹", style: .function) { manager.insertInverse() }
                 }
@@ -188,45 +265,45 @@ struct CalculatorView: View {
 
     private enum KeyStyle {
         case number, function, operatorKey, structure
+
+        var background: Color {
+            switch self {
+            case .number: return Color(uiColor: .systemFill)
+            case .function: return Color(uiColor: .secondarySystemBackground)
+            case .operatorKey: return Color.indigo.opacity(0.10)
+            case .structure: return Color.teal.opacity(0.12)
+            }
+        }
+
+        var foreground: Color {
+            switch self {
+            case .number: return .primary
+            case .function: return .primary
+            case .operatorKey: return .indigo
+            case .structure: return .teal
+            }
+        }
+
+        var height: CGFloat {
+            switch self {
+            case .number: 48
+            case .function: 36
+            case .operatorKey: 48
+            case .structure: 48
+            }
+        }
     }
 
     private func key(_ title: String, style: KeyStyle = .number, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button(action: {}) {
             Text(title)
                 .font(.system(size: 19, weight: .medium, design: .rounded))
                 .frame(maxWidth: .infinity)
-                .frame(height: keyHeight(style))
-                .background(keyBackground(style), in: RoundedRectangle(cornerRadius: 12))
-                .foregroundStyle(keyForeground(style))
+                .frame(height: style.height)
+                .background(style.background, in: RoundedRectangle(cornerRadius: 12))
+                .foregroundStyle(style.foreground)
         }
-        .buttonStyle(.plain)
-    }
-
-    private func keyBackground(_ style: KeyStyle) -> Color {
-        switch style {
-        case .number: return Color(uiColor: .systemFill)
-        case .function: return Color(uiColor: .secondarySystemBackground)
-        case .operatorKey: return Color.indigo.opacity(0.10)
-        case .structure: return Color.teal.opacity(0.12)
-        }
-    }
-
-    private func keyForeground(_ style: KeyStyle) -> Color {
-        switch style {
-        case .number: return .primary
-        case .function: return .primary
-        case .operatorKey: return .indigo
-        case .structure: return .teal
-        }
-    }
-
-    private func keyHeight(_ style: KeyStyle) -> CGFloat {
-        switch style {
-        case .number: 48
-        case .function: 36
-        case .operatorKey: 48
-        case .structure: 48
-        }
+        .buttonStyle(OnPressedButtonStyle(onPressed: action))
     }
 
     private func utilityButton(
@@ -235,7 +312,7 @@ struct CalculatorView: View {
         tint: Color,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button(action: {}) {
             HStack(spacing: 5) {
                 if let symbol {
                     Image(systemName: symbol)
@@ -250,214 +327,31 @@ struct CalculatorView: View {
             .background(tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
             .foregroundStyle(tint)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(OnPressedButtonStyle(onPressed: action))
     }
 }
 
-// MARK: - Recursive expression renderer
+struct OnPressedButtonStyle: ButtonStyle {
+    var onPressed: (() -> Void)?
+    var onReleased: (() -> Void)?
 
-struct ExpressionRow: View {
-    let nodes: [VisualNode]
-    let path: [Cursor.Step]
-    let cursor: Cursor
-    let onSetCursor: ([Cursor.Step], Int) -> Void
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 2) {
-            ForEach(0..<nodes.count, id: \.self) { gap in
-                NodeView(
-                    node: nodes[gap],
-                    path: path,
-                    nodeIndex: gap,
-                    cursor: cursor,
-                    onSetCursor: onSetCursor
-                )
-                .background {
-                    if cursor.path == path && cursor.index-1 == gap {
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(Color(uiColor: .tertiarySystemBackground))
-                    }
-                }
-                .overlay(alignment: .leading) {
-                    if cursor.path == path && cursor.index == gap {
-                        CursorCaret()
-                            .offset(x: -2)
-                    }
-                }
+    // Wrapper for isPressed where we can run custom logic via didSet (or willSet)
+    @State private var isPressedWrapper: Bool = false {
+        didSet {
+            // new value is pressed, old value is not pressed -> switching to pressed state
+            if (isPressedWrapper && !oldValue) {
+                onPressed?()
             }
-        }
-        .overlay(alignment: .trailing) {
-            if cursor.path == path && cursor.index == nodes.count {
-                CursorCaret()
-                    .offset(x: 2)
-            }
-        }
-        .fixedSize(horizontal: true, vertical: false)
-        .frame(minHeight: 36)
-    }
-}
-
-struct NodeView: View {
-    let node: VisualNode
-    let path: [Cursor.Step]
-    let nodeIndex: Int
-    let cursor: Cursor
-    let onSetCursor: ([Cursor.Step], Int) -> Void
-
-    var body: some View {
-        switch node {
-        case .atom(let value):
-            Text(value)
-                .font(.system(size: 24, weight: .regular, design: .rounded))
-                .foregroundStyle(.primary)
-                .padding(.vertical, 1)
-                .contentShape(Rectangle())
-                .overlay { // left tap = focus here, right tap = focus next
-                    HStack(spacing: 0) {
-                        Color.white.opacity(0.001)
-                            .onTapGesture {
-                                onSetCursor(path, nodeIndex)
-                            }
-                        Color.white.opacity(0.001)
-                            .onTapGesture {
-                                onSetCursor(path, nodeIndex+1)
-                            }
-                    }
-                }
-
-        case .structure(let structure):
-            StructureView(
-                structure: structure,
-                path: path,
-                nodeIndex: nodeIndex,
-                cursor: cursor,
-                onSetCursor: onSetCursor
-            )
-        }
-    }
-}
-
-struct StructureView: View {
-    let structure: Structure
-    let path: [Cursor.Step]
-    let nodeIndex: Int
-    let cursor: Cursor
-    let onSetCursor: ([Cursor.Step], Int) -> Void
-
-    var body: some View {
-        Group {
-            switch structure.associatedOperator.name {
-            case FractionOperator.shared.name:
-                VStack(spacing: 4) {
-                    slot(0)
-                    Rectangle()
-                        .fill(Color.primary.opacity(0.75))
-                        .frame(height: 1.5)
-                        .frame(minWidth: 34)
-                    slot(1)
-                }
-                .padding(.horizontal, 3)
-            case SquareRootOperator.shared.name:
-                slot(0)
-                    .padding(.leading, 1)
-                    .padding(.trailing, 4)
-                    .padding(.top, 2)
-                    .padding(.leading, 16) // for the sqrt shape
-                    .overlay {
-                        SquareRootShape(mainTickWidth: 16)
-                            .stroke(
-                                Color.primary,
-                                style: StrokeStyle(
-                                    lineWidth: 1.8,
-                                    lineCap: .round,
-                                    lineJoin: .round
-                                )
-                            )
-                    }
-            case PowerOperator.shared.name:
-                HStack(alignment: .top, spacing: 1) {
-                    slot(0)
-                    slot(1)
-                        .scaleEffect(0.72, anchor: .bottomLeading)
-                        .offset(y: -7)
-                }
-//            case .custom(let symbol):
-//                HStack(spacing: 3) {
-//                    Text(symbol)
-//                    ForEach(structure.slots.indices, id: \.self) { index in
-//                        slot(index)
-//                    }
-//                }
-            default:
-                Text("???")
-            }
-        }
-        .contentShape(Rectangle())
-    }
-
-    @ViewBuilder
-    private func slot(_ index: Int) -> some View {
-        let slotPath = path + [Cursor.Step(nodeIndex: nodeIndex, slotIndex: index)]
-        if structure.slots.indices.contains(index) {
-            let content = structure.slots[index]
-            if content.isEmpty {
-                Button {
-                    onSetCursor(slotPath, 0)
-                } label: {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.indigo.opacity(0.07))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 4)
-                                .strokeBorder(Color.indigo.opacity(0.45), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
-                        }
-                        .frame(width: 30, height: 27)
-                        .overlay {
-                            if cursor.path == slotPath {
-                                CursorCaret()
-                            } else {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 9, weight: .medium))
-                                    .foregroundStyle(.indigo.opacity(0.7))
-                            }
-                        }
-                }
-                .buttonStyle(.plain)
-            } else {
-                ExpressionRow(
-                    nodes: content,
-                    path: slotPath,
-                    cursor: cursor,
-                    onSetCursor: onSetCursor
-                )
+            // new value is not pressed, old value is pressed -> switching to unpressed state
+            else if (oldValue && !isPressedWrapper) {
+                onReleased?()
             }
         }
     }
-}
 
-struct CursorCaret: View {
-    var body: some View {
-        Capsule()
-            .fill(Color.indigo)
-            .frame(width: 2, height: 29)
-            .padding(.horizontal, 1)
-    }
-}
-
-struct SquareRootShape: Shape {
-    let mainTickWidth: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-
-        let width = mainTickWidth
-        let height = rect.height
-
-        path.move(to: CGPoint(x: 0, y: height * 0.56)) // start of tick
-        path.addLine(to: CGPoint(x: width * 0.32, y: height * 0.56)) // end of tick; start of down slope
-        path.addLine(to: CGPoint(x: width * 0.61, y: height * 0.94)) // end of down slope; start of up slope
-        path.addLine(to: CGPoint(x: width, y: 0)) // end of up slop; start of line
-        path.addLine(to: CGPoint(x: rect.width, y: 0)) // end of line
-
-        return path
+    // return the label unaltered, but add a hook to watch changes in configuration.isPressed
+    func makeBody(configuration: Self.Configuration) -> some View {
+        return configuration.label
+            .onChange(of: configuration.isPressed) { _, newValue in isPressedWrapper = newValue }
     }
 }
