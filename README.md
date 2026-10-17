@@ -18,10 +18,10 @@ Also its educational. If my school calculator can work with 0.0006W surely I can
 - [x] Exact representation of the following:
   - [x] Surds, like 2√2
   - [x] Multiples of pi, like π/3
-- [ ] Units
-  - [ ] Implicit conversion between units (e.g. "1m + 50cm = 1.5m")
-  - [ ] Explicit conversion between units (e.g. "5 min as seconds = 300 s")
-  - [ ] Compound units (e.g. m/s)
+- [x] Units
+  - [x] Implicit conversion between units (e.g. "1m + 50cm = 1.5m")
+  - [x] Explicit conversion between units (e.g. "5 min as seconds = 300 s")
+  - [x] Compound units (e.g. m/s)
 - [x] Basic functions
   - [x] Arithmetic (+, -, \*, /)
   - [x] Prefix negation (e.g. "-2")
@@ -29,6 +29,6 @@ Also its educational. If my school calculator can work with 0.0006W surely I can
   - [x] Logarithms (log, ln, log\_base)
   - [x] Trigonometry (sin, cos, tan, with support for special angles)
   - [x] Constants (π)
-- [ ] Input
+- [x] Input
   - [x] Native keyboard
-  - [ ] Keypad UI
+  - [x] Keypad UI
