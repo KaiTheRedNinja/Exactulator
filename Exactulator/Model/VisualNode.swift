@@ -5,6 +5,8 @@
 //  Created by Kai Quan Tay on 17/10/26.
 //
 
+import Foundation
+
 enum VisualNode {
     case atom(String)
     case structure(Structure)
@@ -92,7 +94,8 @@ extension Quantity {
                 )))
             }
         } else {
-            let stringValue = String(value.asImprecise.value)
+            // 8sf AT MOST
+            let stringValue = String(format: "%.8g", value.asImprecise.value)
             nodes.append(contentsOf: [VisualNode].from(string: stringValue))
         }
 

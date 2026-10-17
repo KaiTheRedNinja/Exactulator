@@ -91,7 +91,8 @@ struct Unit: Equatable {
     }
 
     func raised(to exponent: Int) -> Unit {
-        Unit(
+        guard self != .one else { return self } // 1^x = 1 for all x
+        return Unit(
             symbol: "(\(symbol))^\(exponent)",
             scale: scale.toPower(.exact(.init(exponent))),
             dimensions: dimensions.raised(to: exponent)

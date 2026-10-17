@@ -121,7 +121,7 @@ struct FunctionOperation: Operation {
     }
 
     func solve() throws(OperatorError) -> Quantity {
-        guard op.argumentCount.contains(elements.count) else { fatalError("Wrong number of elements") }
+        guard op.argumentCount.contains(elements.count) else { throw OperatorError.syntaxError }
         let elementsSolved = try elements.map { (elem) throws(OperatorError) in try elem.solve() }
         return try op.result(elements: elementsSolved)
     }

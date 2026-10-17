@@ -100,7 +100,7 @@ struct CalculatorView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.left.arrow.right")
-                            Text(manager.displayMode.label)
+//                            Text(manager.displayMode.label)
                         }
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 12)
@@ -236,21 +236,33 @@ struct ExpressionRow: View {
     let onSetCursor: ([Cursor.Step], Int) -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 1) {
-            ForEach(0...nodes.count, id: \.self) { gap in
-                if cursor.path == path && cursor.index == gap {
-                    CursorCaret()
+        HStack(alignment: .center, spacing: 2) {
+            ForEach(0..<nodes.count, id: \.self) { gap in
+                NodeView(
+                    node: nodes[gap],
+                    path: path,
+                    nodeIndex: gap,
+                    cursor: cursor,
+                    onSetCursor: onSetCursor
+                )
+                .background {
+                    if cursor.path == path && cursor.index-1 == gap {
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(Color(uiColor: .tertiarySystemBackground))
+                    }
                 }
-
-                if gap < nodes.count {
-                    NodeView(
-                        node: nodes[gap],
-                        path: path,
-                        nodeIndex: gap,
-                        cursor: cursor,
-                        onSetCursor: onSetCursor
-                    )
+                .overlay(alignment: .leading) {
+                    if cursor.path == path && cursor.index == gap {
+                        CursorCaret()
+                            .offset(x: -2)
+                    }
                 }
+            }
+        }
+        .overlay(alignment: .trailing) {
+            if cursor.path == path && cursor.index == nodes.count {
+                CursorCaret()
+                    .offset(x: 2)
             }
         }
         .fixedSize(horizontal: true, vertical: false)
@@ -269,22 +281,20 @@ struct NodeView: View {
         switch node {
         case .atom(let value):
             Text(value)
-                .font(.system(size: 27, weight: .regular, design: .rounded))
+                .font(.system(size: 24, weight: .regular, design: .rounded))
                 .foregroundStyle(.primary)
-                .padding(.vertical, 3)
+                .padding(.vertical, 1)
                 .contentShape(Rectangle())
-                .background {
-                    GeometryReader { proxy in
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .gesture(
-                                SpatialTapGesture().onEnded { value in
-                                    let edge = value.location.x < proxy.size.width / 2
-                                        ? nodeIndex
-                                        : nodeIndex + 1
-                                    onSetCursor(path, edge)
-                                }
-                            )
+                .overlay { // left tap = focus here, right tap = focus next
+                    HStack(spacing: 0) {
+                        Color.white.opacity(0.001)
+                            .onTapGesture {
+                                onSetCursor(path, nodeIndex)
+                            }
+                        Color.white.opacity(0.001)
+                            .onTapGesture {
+                                onSetCursor(path, nodeIndex+1)
+                            }
                     }
                 }
 
@@ -321,16 +331,22 @@ struct StructureView: View {
                 }
                 .padding(.horizontal, 3)
             case SquareRootOperator.shared.name:
-                HStack(alignment: .center, spacing: 1) {
-                    Text("√")
-                        .font(.system(size: 31, weight: .regular, design: .serif))
-                    slot(0)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 4)
-                        .overlay(alignment: .top) {
-                            Rectangle().fill(Color.primary.opacity(0.75)).frame(height: 1.5)
-                        }
-                }
+                slot(0)
+                    .padding(.leading, 1)
+                    .padding(.trailing, 4)
+                    .padding(.top, 2)
+                    .padding(.leading, 16) // for the sqrt shape
+                    .overlay {
+                        SquareRootShape(mainTickWidth: 16)
+                            .stroke(
+                                Color.primary,
+                                style: StrokeStyle(
+                                    lineWidth: 1.8,
+                                    lineCap: .round,
+                                    lineJoin: .round
+                                )
+                            )
+                    }
             case PowerOperator.shared.name:
                 HStack(alignment: .top, spacing: 1) {
                     slot(0)
@@ -397,5 +413,24 @@ struct CursorCaret: View {
             .fill(Color.indigo)
             .frame(width: 2, height: 29)
             .padding(.horizontal, 1)
+    }
+}
+
+struct SquareRootShape: Shape {
+    let mainTickWidth: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+
+        let width = mainTickWidth
+        let height = rect.height
+
+        path.move(to: CGPoint(x: 0, y: height * 0.56)) // start of tick
+        path.addLine(to: CGPoint(x: width * 0.32, y: height * 0.56)) // end of tick; start of down slope
+        path.addLine(to: CGPoint(x: width * 0.61, y: height * 0.94)) // end of down slope; start of up slope
+        path.addLine(to: CGPoint(x: width, y: 0)) // end of up slop; start of line
+        path.addLine(to: CGPoint(x: rect.width, y: 0)) // end of line
+
+        return path
     }
 }

@@ -75,31 +75,6 @@ final class CalculatorManager: ObservableObject {
         insertPower(exponent: [.atom("2")])
     }
 
-    func moveLeft() {
-        if cursor.index > 0 {
-            cursor.index -= 1
-        } else if let previous = previousRowLocation() {
-            cursor.path = previous.path
-            cursor.index = previous.index
-        } else {
-            cursor.index = row(at: cursor.path)?.count ?? 0
-            cursor.path = []
-        }
-    }
-
-    func moveRight() {
-        let count = row(at: cursor.path)?.count ?? 0
-        if cursor.index < count {
-            cursor.index += 1
-        } else if let next = nextRowLocation() {
-            cursor.path = next.path
-            cursor.index = next.index
-        } else {
-            cursor.path = []
-            cursor.index = 0
-        }
-    }
-
     func deleteBackward() {
         guard var row = row(at: cursor.path) else { return }
         guard cursor.index > 0, cursor.index <= row.count else { return }
@@ -132,6 +107,54 @@ final class CalculatorManager: ObservableObject {
     }
 
     // MARK: Cursor and recursive row editing
+
+    func moveLeft() {
+        guard let currentRow = row(at: cursor.path) else { return }
+
+        if cursor.index > 0 {
+            let previousIndex = cursor.index - 1
+
+            if case .structure(let structure) = currentRow[previousIndex],
+               let lastSlot = structure.slots.indices.last {
+                cursor.path.append(
+                    Cursor.Step(nodeIndex: previousIndex, slotIndex: lastSlot)
+                )
+                cursor.index = structure.slots[lastSlot].count
+            } else {
+                cursor.index -= 1
+            }
+        } else if let previous = previousRowLocation() {
+            cursor.path = previous.path
+            cursor.index = previous.index
+        } else {
+            cursor.path = []
+            cursor.index = expression.count
+        }
+    }
+
+    func moveRight() {
+        guard let currentRow = row(at: cursor.path) else { return }
+
+        if cursor.index < currentRow.count {
+            let nextIndex = cursor.index
+
+            if case .structure(let structure) = currentRow[nextIndex],
+               !structure.slots.isEmpty {
+                cursor.path.append(
+                    Cursor.Step(nodeIndex: nextIndex, slotIndex: 0)
+                )
+                cursor.index = 0
+            } else {
+                cursor.index += 1
+            }
+        } else if let next = nextRowLocation() {
+            cursor.path = next.path
+            cursor.index = next.index
+        } else {
+            cursor.path = []
+            cursor.index = 0
+        }
+    }
 
     func setCursor(path: [Cursor.Step], index: Int) {
         cursor.path = path
