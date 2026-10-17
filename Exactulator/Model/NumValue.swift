@@ -168,8 +168,8 @@ enum NumValue: Equatable, ExpressibleByFloatLiteral {
                 piPower: lhsExact.piPower,
                 surdBase: lhsExact.surdBase
             )
-                .normalised()
-            return fallback
+            .normalised()
+            return .exact(exactSum)
         } catch {
             throw OperatorError.exactError(error)
         }
@@ -217,7 +217,7 @@ enum NumValue: Equatable, ExpressibleByFloatLiteral {
                 piPower: lhsExact.piPower + rhsExact.piPower,
                 surdBase: lhsExact.surdBase * rhsExact.surdBase
             )
-                .normalised()
+            .normalised()
             return .exact(exactProduct)
         } catch {
             throw OperatorError.exactError(error)
