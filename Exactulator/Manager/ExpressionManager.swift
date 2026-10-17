@@ -167,6 +167,7 @@ class ExpressionManager {
         var bracketStartIndex: Int?
         var height: Int = 0
         var replacements: [(Range<Int>, any Operation)] = []
+        let startIndex = workingTokens.startIndex
         for (index, workToken) in workingTokens.enumerated() {
             guard case let .token(token) = workToken else { continue }
             switch token {
@@ -179,7 +180,7 @@ class ExpressionManager {
                     // We have exited a bracket, time to solve!
                     // note that we drop the first and last item, because those are brackets and will result in infinite loops.
 
-                    let subExpression = workingTokens[(bracketStartIndex!+1)..<index]
+                    let subExpression = workingTokens[(startIndex + bracketStartIndex!+1)..<(startIndex + index)]
                     let subExpressionParts = subExpression.split { possibleDelimiter in
                         switch possibleDelimiter {
                         case .token(let token): token.string == ","
