@@ -129,6 +129,8 @@ class ExpressionManager {
     // 2) Splitting up brackets, if any
     // 3) Evaluating operators
     func computeSubexpression(workingTokens: ArraySlice<WorkingToken>) throws(TreeBuildingError) -> any Operation {
+        guard !workingTokens.isEmpty else { throw TreeBuildingError.invalidSyntax }
+
         // scan for nested, get them solved
         var workingTokensMut = Array(workingTokens)
         for (index, workToken) in workingTokens.enumerated() {
