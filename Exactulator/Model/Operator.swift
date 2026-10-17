@@ -415,3 +415,30 @@ struct UnitOperator: ConstantOperator {
         .init(value: .exact(.init(1)), unit: unit)
     }
 }
+
+/// An operator which converts a value on the left to the unit on the right
+struct UnitConvertOperator: InfixOperator {
+    var name: String { "as" }
+    var matchTokens: Set<Token> { ["as"] }
+    var priority: OperatorPriority { .multiplication }
+
+    static let shared: UnitConvertOperator = .init()
+
+    func result(lhs: Quantity, rhs: Quantity) throws(OperatorError) -> Quantity {
+        // RHS has to be a unit. That means its value is 1 and unit isn't .one.
+        guard rhs.value.asImprecise.value == 1, rhs.unit != .one else {
+            throw OperatorError.syntaxError
+        }
+
+        // Attempt to convert lhs into rhs.unit
+        do {
+            let result = try lhs.converted(to: rhs.unit)
+            return result
+        } catch {
+            if let error = error as? UnitSystemError {
+                throw OperatorError.unitError(error)
+            }
+            throw OperatorError.mathError
+        }
+    }
+}

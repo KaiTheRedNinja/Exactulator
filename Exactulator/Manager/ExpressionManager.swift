@@ -27,19 +27,63 @@ class ExpressionManager {
         case invalidArguments
     }
 
-    // Currently planned supported syntax:
-    // Infix: `a + b`
-    // Prefix: `-a`
-    // Postfix: `a!`
-    // Implicit multiplication: `ab`
-    // Functions with one parameter: `sin(a)`
-    // Functions with multiple parameters: `log(a, b)`
-    //
-    // Not supported:
-    // Functions with zero parameters
+    enum WorkingToken {
+        case token(Token)
+        case operation(any Operation)
+        case nested(any FunctionOperator, [[WorkingToken]])
+    }
+
+    func computeOperationTree(nodes: [VisualNode]) throws(TreeBuildingError) -> any Operation {
+        func visualNodesToWorkingNodes(visualNodes: [VisualNode]) -> [WorkingToken] {
+            // convert the expression into tokens
+            var result: [WorkingToken] = []
+            var currentString: String = ""
+
+            func pushCurrent() {
+                result.append(contentsOf: [Token].build(fromString: currentString).map { .token($0) })
+                currentString = ""
+            }
+
+            // Check for matching bracket pairs. There cannot be more close brackets than open brackets
+            for node in visualNodes {
+                switch node {
+                case .atom(let str):
+                    currentString += str
+                case .structure(let structure):
+                    result.append(
+                        .nested(structure.associatedOperator, structure.slots.map {
+                            visualNodesToWorkingNodes(visualNodes: $0)
+                        })
+                    )
+                }
+            }
+
+            return result
+        }
+
+        var tokens = visualNodesToWorkingNodes(visualNodes: nodes)
+
+        // Check for matching bracket pairs. There cannot be more close brackets than open brackets
+        var height: Int = 0
+        for token in tokens {
+            switch token {
+            case .token(.openBracket):
+                height += 1
+            case .token(.closeBracket):
+                height -= 1
+                if height < 0 { throw TreeBuildingError.invalidSyntax }
+            default: continue
+            }
+        }
+        // however there may be more open than close brackets, so we just close them at the end.
+        tokens.append(contentsOf: [WorkingToken](repeating: .token(.closeBracket), count: height))
+
+        return try computeOperationTree(workingTokens: tokens)
+    }
+
     func computeOperationTree(expression: String) throws(TreeBuildingError) -> any Operation {
         // convert the expression into tokens
-        var tokens: [Token] = .build(from: expression)
+        var tokens: [Token] = .build(fromString: expression)
 
         // Check for matching bracket pairs. There cannot be more close brackets than open brackets
         var height: Int = 0
@@ -56,11 +100,6 @@ class ExpressionManager {
         // however there may be more open than close brackets, so we just close them at the end.
         tokens.append(contentsOf: [Token](repeating: .closeBracket, count: height))
 
-        enum WorkingToken {
-            case token(Token)
-            case operation(any Operation)
-        }
-
         // map all tokens into working tokens. We first convert values and constants into operations
         var startWorkingTokens: [WorkingToken] = []
         for token in tokens {
@@ -75,12 +114,39 @@ class ExpressionManager {
                 }
             }
         }
+        return try computeOperationTree(workingTokens: startWorkingTokens)
+    }
 
+    // Currently planned supported syntax:
+    // Infix: `a + b`
+    // Prefix: `-a`
+    // Postfix: `a!`
+    // Implicit multiplication: `ab`
+    // Functions with one parameter: `sin(a)`
+    // Functions with multiple parameters: `log(a, b)`
+    //
+    // Not supported:
+    // Functions with zero parameters
+    func computeOperationTree(workingTokens: [WorkingToken]) throws(TreeBuildingError) -> any Operation {
         // For each subexpression, we aim to break it up by
         // 1) Splitting up subexpressions, if any
         // 2) Splitting up brackets, if any
         // 3) Evaluating operators
         func computeSubexpression(workingTokens: ArraySlice<WorkingToken>) throws(TreeBuildingError) -> any Operation {
+            // scan for nested, get them solved
+            var workingTokensMut = Array(workingTokens)
+            for (index, workToken) in workingTokens.enumerated() {
+                guard case let .nested(functionOperator, rows) = workToken else { continue }
+                workingTokensMut[index] = try .operation(
+                    FunctionOperation(
+                        op: functionOperator,
+                        elements: rows.map { (row) throws(TreeBuildingError) in
+                            try computeSubexpression(workingTokens: row[row.startIndex..<row.endIndex])
+                        }
+                    )
+                )
+            }
+
             // scan for brackets, get them solved
             var bracketStartIndex: Int?
             var height: Int = 0
@@ -120,8 +186,7 @@ class ExpressionManager {
                 }
             }
 
-            // get a mutable copy and substitute
-            var workingTokensMut = Array(workingTokens)
+            // substitute brackets out
             for (replacementRange, op) in replacements.reversed() { // replace from back to front to preserve index order
                 workingTokensMut.replaceSubrange(replacementRange, with: [.operation(op)])
             }
@@ -267,7 +332,7 @@ class ExpressionManager {
         }
 
         return try computeSubexpression(
-            workingTokens: startWorkingTokens[startWorkingTokens.startIndex..<startWorkingTokens.endIndex]
+            workingTokens: workingTokens[workingTokens.startIndex..<workingTokens.endIndex]
         )
     }
 }

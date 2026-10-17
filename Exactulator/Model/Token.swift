@@ -83,7 +83,7 @@ private extension Token {
 }
 
 extension [Token] {
-    static func build(from source: String) -> [Token] {
+    static func build(fromString source: String) -> [Token] {
         // break into tokens
         var currentRange: String = ""
         var tokens: [Token] = []
