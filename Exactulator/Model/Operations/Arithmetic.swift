@@ -27,7 +27,7 @@ struct AdditionOperator: InfixOperator {
 /// An operator that performs subtraction, including prefix subtraction (`-1`)
 struct SubtractionOperator: InfixOperator, PrefixOperator {
     var name: String { "subtract" }
-    var matchTokens: Set<Token> { ["-"] } // yes, these two dashes are different.
+    var matchTokens: Set<Token> { ["-", "−"] } // yes, these two dashes are different.
     var priority: OperatorPriority { .addition }
 
     static let shared: SubtractionOperator = .init()

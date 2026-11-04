@@ -35,7 +35,10 @@ final class CalculatorManager: ObservableObject {
 
     func refreshSolution() {
         do {
-            solution = try expressionManager.computeOperationTree(nodes: expression).solve().toVisualNodes(displayMode: displayMode)
+            let tree = try expressionManager.computeOperationTree(nodes: expression)
+            let solved = try tree.solve()
+            let visual = solved.toVisualNodes(displayMode: displayMode)
+            self.solution = visual
             warning = nil
         } catch {
             solution = []

@@ -133,9 +133,12 @@ struct CalculatorView: View {
 
             HStack(alignment: .bottom, spacing: 6) {
                 if let warning = manager.warning {
-                    Text(warning)
-                        .font(.callout)
-                        .multilineTextAlignment(.leading)
+                    ExpressionRow(
+                        nodes: .from(string: warning),
+                        path: [],
+                        cursor: Cursor(path: [], index: -1),
+                        onSetCursor: { _, _ in } // do nothing
+                    )
                 } else {
                     ScrollView(.horizontal) {
                         ExpressionRow(
@@ -264,7 +267,7 @@ struct CalculatorView: View {
                     key("1", style: .number) { manager.insertAtom("1") }
                     key("2", style: .number) { manager.insertAtom("2") }
                     key("3", style: .number) { manager.insertAtom("3") }
-                    key("−", style: .operatorKey) { manager.insertAtom("−") }
+                    key("−", style: .operatorKey) { manager.insertAtom("-") } // ASCII dash!!
                 }
 
                 HStack(spacing: 9) {
