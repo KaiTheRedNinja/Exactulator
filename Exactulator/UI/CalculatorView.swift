@@ -22,6 +22,7 @@ struct CalculatorView: View {
 
                 if showKeypad {
                     keypad
+                        .layoutPriority(100)
                         .padding(.horizontal, 12)
                         .padding(.top, 14)
                         .padding(.bottom, 10)
@@ -111,7 +112,7 @@ struct CalculatorView: View {
             }
             .defaultScrollAnchor(.bottom)
             .scrollClipDisabled()
-            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 210, maxHeight: .infinity, alignment: .topTrailing)
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 100, maxHeight: .infinity, alignment: .topTrailing)
 
             ScrollView(.horizontal) {
                 ExpressionRow(
