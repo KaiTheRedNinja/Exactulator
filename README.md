@@ -1,6 +1,8 @@
 # Exactulator
 An exact-representation calculator.
 
+[DEMO HERE](https://youtu.be/t7mWmZi_odA)
+
 ## How do I use this?
 You can either:
 - Download the app via the [TestFlight](https://testflight.apple.com/join/n1qw1FuN)
