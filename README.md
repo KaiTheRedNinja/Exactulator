@@ -1,6 +1,15 @@
 # Exactulator
 An exact-representation calculator.
 
+## How do I use this?
+You can either:
+- Download the app via the [TestFlight](https://testflight.apple.com/join/n1qw1FuN)
+- Build it from source (just download and hit Run)
+
+Use it like how you would a regular scientific calculator, though there are two main differences:
+- No equals button, results show up automatically
+- Press the green up arrow to save the result to a scrollable history
+
 ## What is exact representation?
 In math, exact representation is a way to represent irrational numbers by extracting out the irrational parts. For example,
 
