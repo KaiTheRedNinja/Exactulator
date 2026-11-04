@@ -18,7 +18,7 @@ protocol Operator {
 }
 
 /// An error in executing an operation
-enum OperatorError: Error {
+enum OperatorError: Error, LocalizedError {
     /// An error with Exact
     case exactError(ExactError)
     /// A unit error
@@ -27,6 +27,19 @@ enum OperatorError: Error {
     case mathError
     /// Syntax error
     case syntaxError
+
+    var errorDescription: String? {
+        switch self {
+        case .exactError(let exactError):
+            exactError.localizedDescription
+        case .unitError(let unitSystemError):
+            unitSystemError.localizedDescription
+        case .mathError:
+            "Math Error"
+        case .syntaxError:
+            "Syntax Error"
+        }
+    }
 }
 
 /// Operator priority, higher number = higher priority. Follows PEMDAS.

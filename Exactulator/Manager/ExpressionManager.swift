@@ -6,6 +6,7 @@
 //
 
 import Playgrounds
+import SwiftUI
 
 class ExpressionManager {
     var registeredOps: OperationHolder
@@ -16,7 +17,7 @@ class ExpressionManager {
         self.registeredUnits = registeredUnits
     }
 
-    enum TreeBuildingError: Error {
+    enum TreeBuildingError: Error, LocalizedError {
         // Syntax had something wrong with it
         case invalidSyntax
         // An operator is not supported
@@ -27,6 +28,16 @@ class ExpressionManager {
         case invalidArguments
         // Infinite loop
         case hang
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidSyntax: "Invalid Syntax"
+            case .unknownOperator: "Unknown Operator"
+            case .unsupportedOperatorPosition: "Invalid Operator Syntax"
+            case .invalidArguments: "Invalid Argument"
+            case .hang: "Could Not Solve"
+            }
+        }
     }
 
     enum WorkingToken {

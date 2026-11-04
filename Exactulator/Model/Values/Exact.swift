@@ -7,11 +7,18 @@
 
 import Foundation
 
-enum ExactError: Error {
+enum ExactError: Error, LocalizedError {
     /// The `Exact` is in an invalid state
     case malformed
     /// Calculating the `Exact` would result in a divide by zero error
     case divideByZero
+
+    var errorDescription: String? {
+        switch self {
+        case .malformed: "Malformed Number"
+        case .divideByZero: "Divide by Zero"
+        }
+    }
 }
 
 /// A value in the form `n / d * pi^p * sqrt(b)` where:
