@@ -18,7 +18,7 @@ struct CalculatorView: View {
             VStack(spacing: 0) {
                 inputAndResult
                     .frame(maxHeight: .infinity)
-                    .background(Color(uiColor: .secondarySystemBackground))
+                    .background(Color(uiColor: .systemGroupedBackground))
 
                 if showKeypad {
                     keypad
@@ -57,7 +57,7 @@ struct CalculatorView: View {
     }
 
     private var inputAndResult: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 0) {
             ScrollView(.vertical) {
                 VStack(spacing: 20) {
                     Spacer()
@@ -101,18 +101,15 @@ struct CalculatorView: View {
                             .scrollClipDisabled()
                         }
                     }
-
-                    if !manager.pastOperations.isEmpty {
-                        Divider()
-
-                        Spacer()
-                            .frame(height: 30)
-                    }
                 }
             }
             .defaultScrollAnchor(.bottom)
-            .scrollClipDisabled()
+//            .scrollClipDisabled()
             .frame(minWidth: 0, maxWidth: .infinity, minHeight: 100, maxHeight: .infinity, alignment: .topTrailing)
+
+            if !manager.pastOperations.isEmpty {
+                Divider()
+            }
 
             ScrollView(.horizontal) {
                 ExpressionRow(
@@ -132,6 +129,7 @@ struct CalculatorView: View {
             }
             .clipShape(Rectangle())
             .padding(10)
+            .background(Color(uiColor: .secondarySystemBackground))
 
             HStack(alignment: .bottom, spacing: 6) {
                 if let warning = manager.warning {
@@ -187,6 +185,7 @@ struct CalculatorView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(20)
+            .background(Color(uiColor: .secondarySystemBackground))
         }
     }
 
